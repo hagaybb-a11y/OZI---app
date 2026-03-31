@@ -171,9 +171,23 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
 .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 .toast-undo { background:none; border:none; color:#5b8dee; font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; padding:0; }
 
-/* ARCHIVE */
-.archive-item { opacity:0.6; }
-.archive-item:hover { opacity:0.85; }
+/* EXPAND/COLLAPSE BUTTONS */
+.btn-expand-collapse { width:26px;height:26px;border-radius:6px;background:var(--s3);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit;flex-shrink:0 }
+.btn-expand-collapse:active { background:var(--s4); }
+.panel-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px }
+.panel-header-title { font-size:16px;font-weight:800 }
+.panel-header-btns { display:flex;gap:6px;align-items:center }
+/* SWIPE */
+.swipe-wrapper { position:relative; overflow:hidden; border-radius:12px; margin-bottom:6px; }
+.swipe-bg-done { position:absolute;top:0;right:0;bottom:0;width:80px;background:#3ecf8e;display:flex;align-items:center;justify-content:center;font-size:20px;border-radius:0 12px 12px 0; }
+.swipe-bg-del  { position:absolute;top:0;left:0;bottom:0;width:80px;background:#f04747;display:flex;align-items:center;justify-content:center;font-size:20px;border-radius:12px 0 0 12px; }
+.swipe-inner { position:relative;z-index:1;background:var(--s1);transition:transform .25s cubic-bezier(.4,0,.2,1); will-change:transform; }
+.swipe-wrapper.swiping .swipe-inner { transition:none; }
+
+.task-item.dragging { opacity:0.4; transform:scale(0.98); }
+.task-item.drag-over { border-top:3px solid var(--c1) !important; }
+.drag-handle { color:#aaa;font-size:18px;padding:0 10px 0 0;cursor:grab;flex-shrink:0;user-select:none }
+.drag-handle:active { cursor:grabbing; color:var(--c1); }
 .action-bar {
   position:fixed; bottom:0; left:0; right:0;
   background:var(--s1); border-top:1px solid var(--border);
@@ -214,38 +228,50 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
 </head>
 <body>
 
-<div class="hdr">
-  <div style="text-align:right">
-    <div class="hdr-logo"><span>OZI</span></div>
-    <div style="font-size:10px;color:var(--muted);font-weight:400">just forget it</div>
+<div class="hdr" style="flex-direction:column;padding:10px 16px 8px;gap:8px">
+  <!-- שורה 1: שעה משמאל, לוגו + סלוגן מימין -->
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+    <div style="font-size:14px;font-weight:700;color:var(--text)" id="hdrClock"></div>
+    <div style="display:flex;align-items:baseline;gap:8px">
+      <div style="font-size:11px;color:var(--muted);font-weight:400">just forget it</div>
+      <div class="hdr-logo"><span>OZI</span></div>
+    </div>
   </div>
-  <div style="text-align:center;flex:1">
-    <div style="font-size:14px;font-weight:800;color:var(--text)" id="hdrDayName"></div>
-    <div style="font-size:11px;font-weight:600;color:var(--c1)" id="hdrDateHebrew"></div>
-    <div style="font-size:10px;color:var(--muted)" id="hdrDateEn"></div>
+  <!-- שורה 2: תאריך -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px">
+    <span style="font-weight:700;color:var(--text)" id="hdrDayName"></span>
+    <span style="color:var(--border2)">|</span>
+    <span style="color:var(--muted)" id="hdrDateEn"></span>
+    <span style="color:var(--border2)">|</span>
+    <span style="font-weight:600;color:var(--c1)" id="hdrDateHebrew"></span>
   </div>
-  <div class="hdr-right">
-    <button onclick="showArchive()" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px" id="archiveBtn">
-      📦 <span id="archiveCount">0</span>
-    </button>
-    <button onclick="showTop3()" style="background:linear-gradient(135deg,#f0a040,#f04747);border:none;border-radius:10px;padding:6px 12px;color:#fff;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
-      🏆 Top 3
-    </button>
+  <!-- שורה 3: כפתורים -->
+  <div style="display:flex;align-items:center;gap:5px;width:100%">
+    <button onclick="showTop3()" style="flex:1;background:linear-gradient(135deg,#f0a040,#f04747);border:none;border-radius:10px;padding:7px 4px;color:#fff;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;text-align:center">🏆 Top 3</button>
+    <button onclick="showNowPopup()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:7px 4px;color:var(--muted);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;text-align:center">⚡ עכשיו</button>
+    <button onclick="go('today')" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:7px 4px;color:var(--muted);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;text-align:center">🗓️ יומן</button>
+    <button onclick="showDashboardPopup()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:7px 4px;color:var(--muted);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;text-align:center">📊 דשבורד</button>
+    <button onclick="showArchive()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:7px 4px;color:var(--muted);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px" id="archiveBtn">📦 <span id="archiveCount">0</span></button>
   </div>
 </div>
 
 <div class="tabs">
   <div class="tab on" onclick="go('dash')">🗂️ תחומים</div>
   <div class="tab" onclick="go('tasks')">✅ משימות</div>
-  <div class="tab" onclick="go('today')">🗓️ יומן</div>
-  <div class="tab" onclick="go('now')">⚡ עכשיו</div>
+  <div class="tab" onclick="go('routines')">🔁 שגרות</div>
+  <div class="tab" onclick="go('projects')">🎯 פרויקטים</div>
 </div>
 
 <div class="panels">
 
+<!-- ROUTINES -->
+<div class="panel" id="panel-routines"></div>
 
-<!-- NOW -->
-<div class="panel" id="panel-now"></div>
+<!-- PROJECTS -->
+<div class="panel" id="panel-projects"></div>
+
+<!-- NOW (hidden, dashboard only) -->
+<div class="panel" id="panel-now" style="display:none"></div>
 
 <!-- TODAY -->
 <div class="panel" id="panel-today"></div>
@@ -308,6 +334,27 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
   </div>
 </div>
 
+<!-- DASHBOARD OVERLAY -->
+<div class="modal-overlay" id="dashOverlay">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div id="dashOverlayContent"></div>
+  </div>
+</div>
+
+<!-- ROUTINE PROMPT MODAL -->
+<div class="modal-overlay" id="routinePromptOverlay">
+  <div class="modal" style="max-width:340px">
+    <div id="routinePromptContent"></div>
+  </div>
+</div>
+
+<!-- NOW POPUP -->
+<div class="modal-overlay" id="nowOverlay">
+  <div class="modal" style="max-height:80vh">
+    <div id="nowContent"></div>
+  </div>
+</div>
+
 <!-- TOP 3 MODAL -->
 <div class="modal-overlay" id="top3Overlay">
   <div class="modal" style="max-height:85vh">
@@ -352,7 +399,7 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
 
 <!-- ADD TASK MODAL -->
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
+  <div class="modal" style="max-height:88vh;overflow-y:auto">
     <div class="modal-title" id="modalTitle">משימה חדשה</div>
     <div class="modal-field">
       <label class="modal-label">תיאור המשימה</label>
@@ -364,29 +411,109 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
     </div>
     <div class="modal-field">
       <label class="modal-label">תת-קטגוריה</label>
-      <select class="modal-select" id="subcatSelect"></select>
+      <select class="modal-select" id="subcatSelect" onchange="onSubcatChange()"></select>
     </div>
-    <div class="modal-field">
+
+    <!-- תיוג אנשים — אחרי תחום -->
+    <div class="modal-field" id="peopleField">
+      <label class="modal-label">מעורבים</label>
+      <div id="peopleFieldInner"></div>
+    </div>
+
+    <!-- הערות -->
+    <div class="modal-field" id="notesField">
+      <label class="modal-label">הערות (אופציונלי)</label>
+      <textarea class="modal-input" id="taskNotesInput" placeholder="הקשר, פרטים נוספים, קישורים..." rows="2"
+        style="resize:none;line-height:1.5;font-family:inherit"></textarea>
+    </div>
+
+    <!-- מיקום — מופיע רק בניהול הבית + לעשות -->
+    <div class="modal-field" id="locationField" style="display:none">
+      <label class="modal-label">מיקום</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="locHome" onclick="setLocation('home')"
+          style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--s2);font-family:inherit;font-size:13px;cursor:pointer">🏠 בבית</button>
+        <button type="button" id="locOut" onclick="setLocation('out')"
+          style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--s2);font-family:inherit;font-size:13px;cursor:pointer">🚗 בחוץ</button>
+      </div>
+    </div>
+
+    <!-- עדיפות — נסתר כשזו שגרה -->
+    <div class="modal-field" id="priorityField">
       <label class="modal-label">עדיפות</label>
       <select class="modal-select" id="prioritySelect">
-        <option value="">רגיל</option>
+        <option value="yellow">⭐ ממנהל ישיר</option>
         <option value="urgent">🔴 דחוף</option>
         <option value="important">🟠 חשוב</option>
         <option value="low">🟢 לא דחוף</option>
-        <option value="routine">🔁 שגרה</option>
-        <option value="project">🎯 פרויקט</option>
       </select>
     </div>
-    <div class="modal-field">
+
+    <!-- שיוך לפרויקט -->
+    <div class="modal-field" id="projectField">
+      <label class="modal-label">שיוך לפרויקט (אופציונלי)</label>
+      <select class="modal-select" id="projectSelect">
+        <option value="">ללא פרויקט</option>
+      </select>
+    </div>
+
+    <!-- שדות שגרה — מופיעים רק כשתת-קטגוריה = שגרות -->
+    <div id="routineFields" style="display:none">
+      <div class="modal-field">
+        <label class="modal-label">תדירות</label>
+        <select class="modal-select" id="routineFreq" onchange="onFreqChange()">
+          <option value="daily">📅 יומי</option>
+          <option value="weekly">📅 שבועי</option>
+          <option value="biweekly">📅 דו-שבועי</option>
+          <option value="monthly">📅 חודשי</option>
+          <option value="biannual">📅 חצי שנתי</option>
+          <option value="yearly">📅 שנתי</option>
+        </select>
+      </div>
+      <div class="modal-field" id="daysField" style="display:none">
+        <label class="modal-label">ימים בשבוע</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="0" class="day-cb"> א׳</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="1" class="day-cb"> ב׳</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="2" class="day-cb"> ג׳</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="3" class="day-cb"> ד׳</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="4" class="day-cb"> ה׳</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="5" class="day-cb"> ו׳</label>
+        </div>
+      </div>
+      <div class="modal-field" id="dayOfMonthField" style="display:none">
+        <label class="modal-label">יום בחודש</label>
+        <select class="modal-select" id="dayOfMonth">
+          ${Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-field" id="nextDateField" style="display:none">
+        <label class="modal-label">תאריך יעד הבא</label>
+        <input type="date" class="modal-input" id="routineNextDate" style="direction:ltr">
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">לאחר ביצוע — יתחדש אוטומטית לחצי שנה קדימה</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div class="modal-field" style="flex:1">
+          <label class="modal-label">שעת התחלה</label>
+          <input type="time" class="modal-input" id="routineTime" style="direction:ltr">
+        </div>
+        <div class="modal-field" style="flex:1">
+          <label class="modal-label">משך (דקות)</label>
+          <input type="number" class="modal-input" id="routineDuration" placeholder="30" min="5" max="480">
+        </div>
+      </div>
+    </div>
+
+    <!-- זמן יעד — נסתר כשזו שגרה -->
+    <div class="modal-field" id="dueDateField">
       <label class="modal-label">זמן יעד לביצוע</label>
       <div id="dueDateWrap">
         <button type="button" onclick="toggleDueDate()" id="dueDateBtn"
           style="width:100%;padding:10px 12px;background:var(--s2);border:1px dashed var(--border2);border-radius:10px;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer;text-align:right;display:flex;align-items:center;gap:8px">
           <span style="font-size:16px">⏳</span> הוסף זמן יעד לביצוע
         </button>
-        <div id="dueDateFields" style="display:none;margin-top:8px;display:none">
-          <input type="datetime-local" id="dueDateInput" class="modal-input"
-            style="width:100%;direction:ltr">
+        <div id="dueDateFields" style="display:none">
+          <input type="datetime-local" id="dueDateInput" class="modal-input" style="width:100%;direction:ltr;margin-top:8px">
           <button type="button" onclick="clearDueDate()"
             style="margin-top:6px;background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit">
             ✕ הסר זמן יעד
@@ -394,6 +521,7 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
         </div>
       </div>
     </div>
+
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeModal()">ביטול</button>
       <button class="btn-primary" onclick="saveTask()" id="saveTaskBtn">שמור</button>
@@ -405,168 +533,217 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
 <script>
 // ── DATA ──
 const DOMAINS = [
-  {id:'judaism', icon:'✡️', name:'אורח חיים יהודי', color:'#5b8dee',
-   subcats:['יומיומי','חד-פעמי','היערכות לחגים','תהליכים אישיים']},
-  {id:'family', icon:'👨‍👩‍👧', name:'משפחה', color:'#ff8c69',
-   subcats:['חיזוק הלכידות','זוגיות','תכנון אירועים','תכנון טיולים','אחר']},
   {id:'work', icon:'💼', name:'עבודה', color:'#4ec9f0',
-   subcats:['שגרות ניהוליות','משימות מהמנהל','דחוף 🔴','חשוב 🟠','לא דחוף 🟢']},
-  {id:'home', icon:'🏠', name:'ניהול הבית', color:'#f06fa0',
-   subcats:['פרוצדורות','ארגון הבית','שיפוצים ושדרוגים','סידורים וקניות','פיננסים']},
-  {id:'sport', icon:'🏃', name:'ספורט ובריאות', color:'#3ecf8e',
-   subcats:['ציוד ובדיקות','שגרת אימונים','תזונה ותפריט']},
+   subcats:['שגרות','לעשות','פרויקטים']},
+  {id:'judaism', icon:'✡️', name:'אורח חיים יהודי', color:'#5b8dee',
+   subcats:['שגרות','לעשות','פרויקטים']},
+  {id:'couple', icon:'💑', name:'זוגיות', color:'#f06fa0',
+   subcats:['שגרות','לעשות','פרויקטים']},
+  {id:'family', icon:'👨‍👩‍👧', name:'משפחה והורות', color:'#ff8c69',
+   subcats:['שגרות','לעשות','פרויקטים']},
+  {id:'home', icon:'🏠', name:'ניהול הבית', color:'#e8507a',
+   subcats:['שגרות','לעשות','פרויקטים']},
+  {id:'health', icon:'🏃', name:'בריאות, טיפוח וכושר', color:'#3ecf8e',
+   subcats:['שגרות','לעשות','פרויקטים']},
   {id:'miluim', icon:'🪖', name:'מילואים', color:'#f0a040',
-   subcats:['כללי','ממהמג"ד','שלישות וקליטה','תכנון אימונים','מקצועי והכשרות','היערכות לאירועים']},
+   subcats:['שגרות','לעשות','פרויקטים']},
   {id:'music', icon:'🎸', name:'גיטרה ומוסיקה', color:'#c084f5',
-   subcats:['ציוד וטכני','למידה והתפתחות','עשייה והקלטה']},
-  {id:'career', icon:'📈', name:'קריירה', color:'#7ed16f',
-   subcats:['חד-פעמי','פיתוח מתמשך','ליווי מקצועי']},
+   subcats:['שגרות','לעשות','פרויקטים']},
+  {id:'career', icon:'📈', name:'התפתחות אישית וניהול קריירה', color:'#7ed16f',
+   subcats:['שגרות','לעשות','פרויקטים']},
   {id:'wishlist', icon:'🌟', name:'Wish List', color:'#f5c842',
-   subcats:['לעשות','ללמוד','לקנות']},
+   subcats:['לקנות','לעשות','ללמוד']},
 ];
 
 const INITIAL_TASKS = [
-  // יהדות
-  {id:1,domain:'judaism',subcat:'תהליכים אישיים',name:'לידורי מקווה',done:false,priority:''},
-  {id:2,domain:'judaism',subcat:'חד-פעמי',name:'לקנות ציצית צמר נורמלית ליום יום',done:false,priority:''},
-  {id:3,domain:'judaism',subcat:'חד-פעמי',name:'תמונה יפה של הרבי לכניסה',done:false,priority:''},
-  {id:4,domain:'judaism',subcat:'חד-פעמי',name:'ציציות טקטיות למילואים',done:false,priority:''},
-  // בית - שיפוצים
-  {id:10,domain:'home',subcat:'שיפוצים ושדרוגים',name:'להחליף מנורה במטבח או לתקן (לבדוק עם אלירן)',done:false,priority:''},
-  {id:11,domain:'home',subcat:'שיפוצים ושדרוגים',name:'מתג חכם לתאורת מטבח להתקין',done:false,priority:''},
-  {id:12,domain:'home',subcat:'שיפוצים ושדרוגים',name:'לפרק גגון עושה רעש',done:false,priority:''},
-  {id:13,domain:'home',subcat:'שיפוצים ושדרוגים',name:'תיקון סדק ליד החדר של הבנות ותליית תמונות',done:false,priority:''},
-  {id:14,domain:'home',subcat:'שיפוצים ושדרוגים',name:'סיום תיקוני צבע בסלון כולל אזור הוילון',done:false,priority:''},
-  {id:15,domain:'home',subcat:'שיפוצים ושדרוגים',name:'לבנות פרגולה אטומה למים חצי מרפסת והכנה למאוורר תקרה ותאורה',done:false,priority:'project'},
-  {id:16,domain:'home',subcat:'שיפוצים ושדרוגים',name:'לתלות תמונות בסלון',done:false,priority:''},
-  {id:17,domain:'home',subcat:'שיפוצים ושדרוגים',name:'לנקות מרפסת שרות ולחסום כניסת יונים',done:false,priority:''},
-  {id:18,domain:'home',subcat:'שיפוצים ושדרוגים',name:'תאורה במחסן',done:false,priority:''},
-  {id:19,domain:'home',subcat:'שיפוצים ושדרוגים',name:'להוריד מתלה כביסה ולסתום חורים לנקות את כל המרפסת',done:false,priority:''},
-  // בית - סידורים
-  {id:20,domain:'home',subcat:'סידורים וקניות',name:'לשטוף את האוטו',done:false,priority:''},
-  {id:21,domain:'home',subcat:'סידורים וקניות',name:'נעליים יפות לשבת אלגנטיות GALI',done:false,priority:''},
-  {id:22,domain:'home',subcat:'סידורים וקניות',name:'לקנות נעלי בית טובות (גם גלי)',done:false,priority:''},
-  {id:23,domain:'home',subcat:'סידורים וקניות',name:'בגדים לחג לכולם',done:false,priority:''},
-  {id:24,domain:'home',subcat:'סידורים וקניות',name:'ספרי תנך שטיינזלץ — כרכי שמואל ומלכים ואולי תהילים',done:false,priority:''},
-  {id:25,domain:'home',subcat:'סידורים וקניות',name:'קרש יפה לחלות לשבת',done:false,priority:''},
-  {id:26,domain:'home',subcat:'סידורים וקניות',name:'להכין לאבירם מתנה קטנה על הקן',done:false,priority:''},
-  {id:27,domain:'home',subcat:'סידורים וקניות',name:'מדרסים לנעלי צבא',done:false,priority:''},
-  {id:28,domain:'home',subcat:'סידורים וקניות',name:'עדשות חדשות למשקפי ריצה',done:false,priority:''},
-  // בית - ארגון
-  {id:30,domain:'home',subcat:'ארגון הבית',name:'לפנות מהארון עוד בגדים שלא טובים',done:false,priority:''},
-  {id:31,domain:'home',subcat:'ארגון הבית',name:'לפנות ארון לבן — לקרוא פירוק, להעביר למחסן',done:false,priority:''},
-  {id:32,domain:'home',subcat:'ארגון הבית',name:'לסנן ולפנות מחסן — להוריד דברים למכירה',done:false,priority:''},
-  {id:33,domain:'home',subcat:'ארגון הבית',name:'לעשות אופטימיזציה ללפטופ',done:false,priority:''},
-  // בית - משפחה → domain: family
-  {id:35,domain:'family',subcat:'משפחה',name:'ללכת למשחק כדורגל עם טוהר — לעזר בנוי',done:false,priority:''},
-  // פרויקטים משפחתיים → domain: family
-  {id:36,domain:'family',subcat:'תכנון טיולים',name:'תכנון נופש עם הילדים בקיץ',done:false,priority:'project'},
-  {id:37,domain:'family',subcat:'תכנון טיולים',name:'ארגון טיול בקיץ — החווה של דני',done:false,priority:'project'},
-  {id:38,domain:'family',subcat:'בת מצווה',name:'לשבת עם רבידי לסגור קונספט לבת מצווה',done:false,priority:'project'},
-  {id:39,domain:'family',subcat:'בת מצווה',name:'שנת בת מצווה תכנית למהלך השנה — יומן ופרויקט',done:false,priority:'project'},
-  {id:40,domain:'family',subcat:'בת מצווה',name:'לשריין אולם ונותני שירות',done:false,priority:''},
-  {id:41,domain:'family',subcat:'בת מצווה',name:'להכין קובץ תכנון לבת מצווה',done:false,priority:''},
-  {id:42,domain:'family',subcat:'בת מצווה',name:'לקנות סידור עם הטבעה',done:false,priority:''},
-  {id:43,domain:'family',subcat:'בת מצווה',name:'להכין תקציב',done:false,priority:''},
-  // עבודה
-  {id:50,domain:'work',subcat:'משימות מהמנהל',name:'לבדוק לגבי שכר של מני',done:false,priority:'yellow'},
-  {id:51,domain:'work',subcat:'משימות מהמנהל',name:'סטטוס ראשי צוותים',done:false,priority:'yellow'},
-  {id:52,domain:'work',subcat:'משימות מהמנהל',name:'רכב ליניב',done:false,priority:'yellow'},
-  {id:53,domain:'work',subcat:'משימות מהמנהל',name:'צידניות חצר',done:false,priority:'yellow'},
-  {id:54,domain:'work',subcat:'משימות מהמנהל',name:'שכר שי',done:false,priority:'yellow'},
-  {id:55,domain:'work',subcat:'משימות מהמנהל',name:'מחשבים לעמדות ביקורת 4+15',done:false,priority:'yellow'},
-  {id:56,domain:'work',subcat:'משימות מהמנהל',name:'שכר עלי',done:false,priority:'yellow'},
-  {id:57,domain:'work',subcat:'משימות מהמנהל',name:'שיחת אזהרה עם הסופרוויזר של ארז — עישון בכניסה',done:false,priority:'yellow'},
-  {id:58,domain:'work',subcat:'משימות מהמנהל',name:'שקף שבועי לאביחי — נקודות על השבוע החולף ולשבוע הבא',done:false,priority:'yellow'},
-  {id:59,domain:'work',subcat:'משימות מהמנהל',name:'בקרות חג כשל"פ',done:false,priority:'yellow'},
-  {id:60,domain:'work',subcat:'משימות מהמנהל',name:'לשבת על חיל — ללמוד את המערכת, לבקר שיבוצים של מנהלים',done:false,priority:'yellow'},
-  {id:61,domain:'work',subcat:'משימות מהמנהל',name:'תהליך טיפול בנעדרים',done:false,priority:'yellow'},
-  {id:62,domain:'work',subcat:'משימות מהמנהל',name:'טיפול בעובדים חריגים — הכנסת ידיים ופגומים',done:false,priority:'yellow'},
-  {id:63,domain:'work',subcat:'משימות מהמנהל',name:'התייחסות למפגע רעש בנקוס אפור',done:false,priority:'yellow'},
-  {id:64,domain:'work',subcat:'משימות מהמנהל',name:'טיפול בימים למחיקה',done:false,priority:'yellow'},
-  {id:65,domain:'work',subcat:'דחוף 🔴',name:'תקשור לשריהאן לגבי ניוד לתפקיד',done:false,priority:'urgent'},
-  {id:66,domain:'work',subcat:'דחוף 🔴',name:'שיבוצים חילן מני ואוראל',done:false,priority:'urgent'},
-  {id:67,domain:'work',subcat:'דחוף 🔴',name:'כתיבת נוהל שימוש בשקיות בפורמט CFC',done:false,priority:'urgent'},
-  {id:68,domain:'work',subcat:'חשוב 🟠',name:'טיוב תיקיות',done:false,priority:'important'},
-  {id:69,domain:'work',subcat:'חשוב 🟠',name:'בניית תכנית עבודה אישית ויומית',done:false,priority:'important'},
-  {id:70,domain:'work',subcat:'חשוב 🟠',name:'אפיון שגרות מחדש מנהל פעילות + ראש צוות',done:false,priority:'important'},
-  {id:71,domain:'work',subcat:'חשוב 🟠',name:'אפיון מצגת שבועית פורום מנהלים',done:false,priority:'important'},
-  {id:72,domain:'work',subcat:'חשוב 🟠',name:'אפיון מצגת חודשית פורום מורחב',done:false,priority:'important'},
-  {id:73,domain:'work',subcat:'חשוב 🟠',name:'משרדים — לבצע סדר וניקיון והגדרות נהלים',done:false,priority:'important'},
-  {id:74,domain:'work',subcat:'חשוב 🟠',name:'אפיון תהליך חניכה לעובד חדש — טופס קליטה',done:false,priority:'important'},
-  {id:75,domain:'work',subcat:'חשוב 🟠',name:'טיפול חרמוניות',done:false,priority:'important'},
-  {id:76,domain:'work',subcat:'לא דחוף 🟢',name:'החלפת משקלים — אין מדבקות כיול',done:false,priority:'low'},
-  {id:77,domain:'work',subcat:'לא דחוף 🟢',name:'לבדוק הזמנת חליפות יותר טובות למקפיא ייצור',done:false,priority:'low'},
-  {id:78,domain:'work',subcat:'לא דחוף 🟢',name:'בעיות ארגונומיות בגלל גובה שולחנות',done:false,priority:'low'},
-  {id:79,domain:'work',subcat:'שגרות ניהוליות',name:'פירוט נעדרים וטיפול פרטני',done:false,priority:'routine'},
-  // קריירה
-  {id:80,domain:'career',subcat:'פיתוח מתמשך',name:'לסיים פרופיל לינקדאין ולייצר קשרים והרבה',done:false,priority:'important'},
-  {id:81,domain:'career',subcat:'פיתוח מתמשך',name:'טיוב קורות חיים — עברית ואנגלית',done:false,priority:'important'},
-  {id:82,domain:'career',subcat:'פיתוח מתמשך',name:'קובץ קשרים ונטוורקינג לחיפוש עבודה',done:false,priority:''},
-  {id:83,domain:'career',subcat:'פיתוח מתמשך',name:'ללמוד עבודה עם AI — להיכנס לעולם הזה בדחיפות',done:false,priority:'urgent'},
-  {id:84,domain:'career',subcat:'חד-פעמי',name:'לעבוד על פי דף הנחיות של איזבלה',done:false,priority:''},
-  {id:85,domain:'career',subcat:'חד-פעמי',name:'לסכם קורס ניהול פרויקטים',done:false,priority:''},
-  {id:86,domain:'career',subcat:'חד-פעמי',name:'פורום טל רבן — לקבוע פגישות ולהיעזר באנשים',done:false,priority:''},
-  {id:87,domain:'career',subcat:'פיתוח מתמשך',name:'קורס אקסל או שיפור פונקציות מרכזיות',done:false,priority:'project'},
-  {id:88,domain:'career',subcat:'פיתוח מתמשך',name:'תכנת Monday',done:false,priority:'project'},
-  {id:89,domain:'career',subcat:'פיתוח מתמשך',name:'שימוש בכלי AI בעולם העבודה — מצגות וניתוח נתונים',done:false,priority:'project'},
-  // מילואים
-  {id:90,domain:'miluim',subcat:'היערכות לאירועים',name:'להכין מסמך ארגון ערב פלוגה (פק"א)',done:false,priority:'urgent'},
-  {id:91,domain:'miluim',subcat:'היערכות לאירועים',name:'קובץ אישורי הגעה לערב פלוגה',done:false,priority:'urgent'},
-  {id:92,domain:'miluim',subcat:'היערכות לאירועים',name:'מתנה לאבירם והקדשה',done:false,priority:''},
-  {id:93,domain:'miluim',subcat:'היערכות לאירועים',name:'מצגת סיכום ותכנית עבודה להמשך',done:false,priority:''},
-  {id:94,domain:'miluim',subcat:'מקצועי והכשרות',name:'חזרה ולימוד על כל חומר קורס מ"פ',done:false,priority:'project'},
-  {id:95,domain:'miluim',subcat:'מקצועי והכשרות',name:'סיכום קורס מ"פ מתומצת דרך AI',done:false,priority:''},
-  {id:96,domain:'miluim',subcat:'כללי',name:'מועמדים מורייה ודגנית',done:false,priority:''},
-  {id:97,domain:'miluim',subcat:'כללי',name:'היערכות לאימון השלמה נוסף',done:false,priority:''},
-  {id:98,domain:'miluim',subcat:'כללי',name:'אבחון פלוגה והכנת מצגת למח"ט — מיפוי פערים ותכנית עבודה',done:false,priority:'project'},
-  {id:99,domain:'miluim',subcat:'כללי',name:'שיחות הדחה ושינויים — וידוא מול כל מ"מ',done:false,priority:''},
-  {id:100,domain:'miluim',subcat:'כללי',name:'קבלת נשקים לבית המשך — בטיפול בכל מי שלא הגיש',done:false,priority:''},
-  {id:101,domain:'miluim',subcat:'כללי',name:'מיקודים: כוננות, מוכנות, תרגול הקפצה, לכידות, כושר קרבי',done:false,priority:'project'},
-  {id:102,domain:'miluim',subcat:'כללי',name:'עבודה על בוחן לוחם בשיתוף (עקיבא?)',done:false,priority:''},
-  {id:103,domain:'miluim',subcat:'כללי',name:'הכרות גזרה — עמק חפר, סיורי שטח, ריצות ניווט',done:false,priority:'project'},
-  {id:104,domain:'miluim',subcat:'כללי',name:'שיחות אישיות עם כל אחד בפלוגה — הכרות מעמיקה',done:false,priority:''},
-  {id:105,domain:'miluim',subcat:'שלישות וקליטה',name:'פונדה לקשר גדולה',done:false,priority:''},
-  {id:106,domain:'miluim',subcat:'שלישות וקליטה',name:'אוזניית שב"כ טובה ומדונה עם חיבור',done:false,priority:''},
-  {id:107,domain:'miluim',subcat:'שלישות וקליטה',name:'משקפי מגן מתכחות',done:false,priority:''},
-  {id:108,domain:'miluim',subcat:'שלישות וקליטה',name:'פנס לקסדה + כיסוי קסדה',done:false,priority:''},
-  {id:109,domain:'miluim',subcat:'שלישות וקליטה',name:'חגורה טובה לטקטי + חגורת לחימה עם פאוצ\'ים',done:false,priority:''},
-  {id:110,domain:'miluim',subcat:'שלישות וקליטה',name:'מחסניות פולימריות איכותיות 7',done:false,priority:''},
+  // ── שגרות — אורח חיים יהודי ──
+  {id:200,domain:'judaism',subcat:'שגרות',name:'מודה אני + נטילת ידיים',done:false,priority:'routine',routine:{freq:'daily',time:'04:00',duration:10,days:[]}},
+  {id:201,domain:'judaism',subcat:'שגרות',name:'ברכות השחר',done:false,priority:'routine',routine:{freq:'daily',time:'04:15',duration:15,days:[]}},
+  {id:202,domain:'judaism',subcat:'שגרות',name:'צדקה + שחרית + תהילים',done:false,priority:'routine',routine:{freq:'daily',time:'06:30',duration:45,days:[]}},
+  {id:203,domain:'judaism',subcat:'שגרות',name:'לימוד יומי — חומש + תניא + היום יום',done:false,priority:'routine',routine:{freq:'daily',time:'07:30',duration:30,days:[]}},
+  {id:204,domain:'judaism',subcat:'שגרות',name:'מנחה + רמב"ם',done:false,priority:'routine',routine:{freq:'daily',time:'13:15',duration:30,days:[]}},
+  {id:205,domain:'judaism',subcat:'שגרות',name:'ערבית',done:false,priority:'routine',routine:{freq:'daily',time:'18:00',duration:15,days:[]}},
+  {id:206,domain:'judaism',subcat:'שגרות',name:'לימוד ערב',done:false,priority:'routine',routine:{freq:'daily',time:'20:30',duration:30,days:[]}},
+  {id:207,domain:'judaism',subcat:'שגרות',name:'שניים מקרא ואחד תרגום',done:false,priority:'routine',routine:{freq:'weekly',time:'14:00',duration:60,days:[5]}},
+  {id:208,domain:'judaism',subcat:'שגרות',name:'הכנת הבית לשבת — בישולים וניקיונות',done:false,priority:'routine',routine:{freq:'weekly',time:'19:00',duration:120,days:[4]}},
+
+  // ── שגרות — זוגיות ──
+  {id:210,domain:'couple',subcat:'שגרות',name:'שיחת טלפון ללידורי',done:false,priority:'routine',routine:{freq:'daily',time:'12:00',duration:15,days:[]}},
+  {id:211,domain:'couple',subcat:'שגרות',name:'כוס קפה ושיחה על היום שהיה',done:false,priority:'routine',routine:{freq:'daily',time:'20:00',duration:20,days:[]}},
+  {id:212,domain:'couple',subcat:'שגרות',name:'יציאה זוגית',done:false,priority:'routine',routine:{freq:'biweekly',time:'19:00',duration:120,days:[5]}},
+
+  // ── שגרות — משפחה והורות ──
+  {id:215,domain:'family',subcat:'שגרות',name:'ארוחת ערב משפחתית',done:false,priority:'routine',routine:{freq:'daily',time:'19:30',duration:45,days:[]}},
+  {id:216,domain:'family',subcat:'שגרות',name:'פעילות משפחתית — יום שישי',done:false,priority:'routine',routine:{freq:'weekly',time:'12:00',duration:120,days:[5]}},
+
+  // ── שגרות — בריאות טיפוח וכושר ──
+  {id:220,domain:'health',subcat:'שגרות',name:'אימון בוקר',done:false,priority:'routine',routine:{freq:'daily',time:'05:00',duration:90,days:[]}},
+  {id:221,domain:'health',subcat:'שגרות',name:'שקילה שבועית',done:false,priority:'routine',routine:{freq:'weekly',time:'06:00',duration:10,days:[0]}},
+  {id:222,domain:'health',subcat:'שגרות',name:'תספורת',done:false,priority:'routine',routine:{freq:'monthly',time:'10:00',duration:30,days:[6]}},
+  {id:223,domain:'health',subcat:'שגרות',name:'אולטרהסאונד',done:false,priority:'routine',routine:{freq:'biannual',time:'09:00',duration:60,days:[]}},
+  {id:224,domain:'health',subcat:'שגרות',name:'ביקורת אנדוקרינולוגיה',done:false,priority:'routine',routine:{freq:'biannual',time:'09:00',duration:60,days:[]}},
+  {id:225,domain:'health',subcat:'שגרות',name:'שיננית',done:false,priority:'routine',routine:{freq:'biannual',time:'09:00',duration:60,days:[]}},
+  {id:226,domain:'health',subcat:'שגרות',name:'בדיקות דם — שומנים',done:false,priority:'routine',routine:{freq:'yearly',time:'08:00',duration:30,days:[]}},
+
+  // ── שגרות — ניהול הבית ──
+  {id:230,domain:'home',subcat:'שגרות',name:'לפנות זבל + כביסה + ניקיון בסיסי',done:false,priority:'routine',routine:{freq:'daily',time:'18:30',duration:20,days:[]}},
+  {id:231,domain:'home',subcat:'שגרות',name:'פינוי פחי זבל',done:false,priority:'routine',routine:{freq:'weekly',time:'07:00',duration:10,days:[0]}},
+  {id:232,domain:'home',subcat:'שגרות',name:'ניקיון הבית',done:false,priority:'routine',routine:{freq:'weekly',time:'10:00',duration:90,days:[5]}},
+  {id:233,domain:'home',subcat:'שגרות',name:'שואב אבק',done:false,priority:'routine',routine:{freq:'weekly',time:'11:30',duration:30,days:[5]}},
+  {id:234,domain:'home',subcat:'שגרות',name:'ניקיון חלונות',done:false,priority:'routine',routine:{freq:'monthly',time:'09:00',duration:60,days:[5]}},
+  {id:235,domain:'home',subcat:'שגרות',name:'ניקיון ניקוזים',done:false,priority:'routine',routine:{freq:'monthly',time:'10:00',duration:20,days:[5]}},
+  {id:236,domain:'home',subcat:'שגרות',name:'ניקיון רכבים',done:false,priority:'routine',routine:{freq:'monthly',time:'11:00',duration:60,days:[5]}},
+  {id:237,domain:'home',subcat:'שגרות',name:'הוספת מלח למסנן אבנית',done:false,priority:'routine',routine:{freq:'biannual',time:'10:00',duration:15,days:[]}},
+
+  // ── שגרות — מילואים ──
+  {id:240,domain:'miluim',subcat:'שגרות',name:'סטטוס ועדכונים מכפיר',done:false,priority:'routine',routine:{freq:'weekly',time:'09:00',duration:30,days:[0]}},
+  {id:241,domain:'miluim',subcat:'שגרות',name:'ישיבת סטטוס פורום מוביל',done:false,priority:'routine',routine:{freq:'monthly',time:'09:00',duration:60,days:[0]}},
+
+  // ── שגרות — גיטרה ומוסיקה ──
+  {id:245,domain:'music',subcat:'שגרות',name:'אימון גיטרה',done:false,priority:'routine',routine:{freq:'weekly',time:'21:00',duration:45,days:[3]}},
+  {id:246,domain:'music',subcat:'שגרות',name:'הקלטת רעיון/שיר ותרגול קיובייס',done:false,priority:'routine',routine:{freq:'weekly',time:'21:00',duration:45,days:[1]}},
+  {id:247,domain:'music',subcat:'שגרות',name:'נגינה עם הרכב בחדר חזרות',done:false,priority:'routine',routine:{freq:'monthly',time:'19:00',duration:120,days:[5]}},
   // מוסיקה
-  {id:120,domain:'music',subcat:'עשייה והקלטה',name:'לעבוד על שיר שלי — יחודי ומיוחד',done:false,priority:'project'},
-  {id:121,domain:'music',subcat:'עשייה והקלטה',name:'להקליט שיר עם שחם שלי',done:false,priority:'project'},
-  {id:122,domain:'music',subcat:'למידה והתפתחות',name:'לשבת על טרו-פייר',done:false,priority:''},
-  {id:123,domain:'music',subcat:'למידה והתפתחות',name:'להתאמן עם הקורס — טאנסקרייב וגיטר פרו',done:false,priority:''},
-  {id:124,domain:'music',subcat:'למידה והתפתחות',name:'שיעורי תאוריה',done:false,priority:''},
-  {id:125,domain:'music',subcat:'ציוד וטכני',name:'לארגן קופסת פיקוד לרמקולים',done:false,priority:''},
-  {id:126,domain:'music',subcat:'ציוד וטכני',name:'להוציא כל הציוד — להחליט מה נשאר ומה למכור',done:false,priority:''},
-  {id:127,domain:'music',subcat:'ציוד וטכני',name:'לבדוק מיקרופון 58 מול 57 — לבדוק על פראהאמפים',done:false,priority:''},
-  {id:128,domain:'music',subcat:'ציוד וטכני',name:'צמצום עמדת עבודה למינימום',done:false,priority:''},
-  // ספורט
-  {id:130,domain:'sport',subcat:'ציוד ובדיקות',name:'לקבוע אולטרהסאונד נוסף — הפניה מרופא משפחה',done:false,priority:'urgent'},
-  {id:131,domain:'sport',subcat:'ציוד ובדיקות',name:'לקבוע תור לרופא עור: פטריות, יבלת בכף רגל, שומות',done:false,priority:'important'},
-  {id:132,domain:'sport',subcat:'ציוד ובדיקות',name:'לקבוע תור לשיניים (אולי בפרטי / כוכב יאיר)',done:false,priority:'important'},
-  // פיננסים → תחת ניהול הבית
-  {id:140,domain:'home',subcat:'פיננסים',name:'לבטל כרטיסי שופרסל — להעביר הוראות קבע לאמריקן אקספרס',done:false,priority:'important'},
-  {id:141,domain:'home',subcat:'פיננסים',name:'לשבת על כל החסכונות והביטוחים — להכין טבלה מסודרת',done:false,priority:'important'},
-  {id:142,domain:'home',subcat:'פיננסים',name:'לבדוק יעוץ כספי — פנסיה וקרן השתלמות',done:false,priority:''},
-  {id:143,domain:'home',subcat:'פיננסים',name:'לקרוא את הספר "השקעות לעצלנים"',done:false,priority:''},
-  {id:144,domain:'home',subcat:'פיננסים',name:'לבדוק חסכון לילדים — אולי להגדיל',done:false,priority:''},
+  {id:120,domain:'music',subcat:'לעשות',name:'לעבוד על שיר שלי — יחודי ומיוחד',done:false,priority:'important'},
+  {id:121,domain:'music',subcat:'לעשות',name:'להקליט שיר עם שחם שלי',done:false,priority:'important'},
+  {id:122,domain:'music',subcat:'לעשות',name:'לשבת על טרו-פייר',done:false,priority:'low'},
+  {id:123,domain:'music',subcat:'לעשות',name:'להתאמן עם הקורס — טאנסקרייב וגיטר פרו',done:false,priority:'low'},
+  {id:124,domain:'music',subcat:'לעשות',name:'שיעורי תאוריה',done:false,priority:'low'},
+  {id:125,domain:'music',subcat:'לעשות',name:'לארגן קופסת פיקוד לרמקולים',done:false,priority:'low'},
+  {id:126,domain:'music',subcat:'לעשות',name:'להוציא כל הציוד — להחליט מה נשאר ומה למכור',done:false,priority:'important'},
+  {id:127,domain:'music',subcat:'לעשות',name:'לבדוק מיקרופון 58 מול 57 — לבדוק על פראהאמפים',done:false,priority:'low'},
+  {id:128,domain:'music',subcat:'לעשות',name:'צמצום עמדת עבודה למינימום',done:false,priority:'low'},
+  // בריאות
+  {id:130,domain:'health',subcat:'לעשות',name:'לקבוע אולטרהסאונד נוסף — הפניה מרופא משפחה',done:false,priority:'urgent'},
+  {id:131,domain:'health',subcat:'לעשות',name:'לקבוע תור לרופא עור: פטריות, יבלת בכף רגל, שומות',done:false,priority:'important'},
+  {id:132,domain:'health',subcat:'לעשות',name:'לקבוע תור לשיניים (אולי בפרטי / כוכב יאיר)',done:false,priority:'important'},
+  // ניהול הבית — בבית
+  {id:140,domain:'home',subcat:'לעשות',name:'להחליף מנורה במטבח (לבדוק עם אלירן)',done:false,priority:'important',location:'home'},
+  {id:141,domain:'home',subcat:'לעשות',name:'מתג חכם לתאורת מטבח להתקין',done:false,priority:'low',location:'home'},
+  {id:142,domain:'home',subcat:'לעשות',name:'לפרק גגון עושה רעש',done:false,priority:'low',location:'home'},
+  {id:143,domain:'home',subcat:'לעשות',name:'תיקון סדק ליד החדר של הבנות ותליית תמונות',done:false,priority:'low',location:'home'},
+  {id:144,domain:'home',subcat:'לעשות',name:'סיום תיקוני צבע בסלון כולל אזור הוילון',done:false,priority:'low',location:'home'},
+  {id:145,domain:'home',subcat:'לעשות',name:'לתלות תמונות בסלון',done:false,priority:'low',location:'home'},
+  {id:146,domain:'home',subcat:'לעשות',name:'לנקות מרפסת שרות ולחסום כניסת יונים',done:false,priority:'important',location:'home'},
+  {id:147,domain:'home',subcat:'לעשות',name:'תאורה במחסן',done:false,priority:'low',location:'home'},
+  {id:148,domain:'home',subcat:'לעשות',name:'להוריד מתלה כביסה ולסתום חורים לנקות את כל המרפסת',done:false,priority:'low',location:'home'},
+  {id:149,domain:'home',subcat:'לעשות',name:'לפנות מהארון עוד בגדים שלא טובים',done:false,priority:'low',location:'home'},
+  {id:150,domain:'home',subcat:'לעשות',name:'לפנות ארון לבן — לקרוא פירוק, להעביר למחסן',done:false,priority:'low',location:'home'},
+  {id:151,domain:'home',subcat:'לעשות',name:'לסנן ולפנות מחסן — להוריד דברים למכירה',done:false,priority:'low',location:'home'},
+  {id:152,domain:'home',subcat:'לעשות',name:'לעשות אופטימיזציה ללפטופ',done:false,priority:'low',location:'home'},
+  // ניהול הבית — בחוץ
+  {id:160,domain:'home',subcat:'לעשות',name:'לשטוף את האוטו',done:false,priority:'low',location:'out'},
+  {id:161,domain:'home',subcat:'לעשות',name:'נעליים יפות לשבת אלגנטיות GALI',done:false,priority:'low',location:'out'},
+  {id:162,domain:'home',subcat:'לעשות',name:'לקנות נעלי בית טובות',done:false,priority:'low',location:'out'},
+  {id:163,domain:'home',subcat:'לעשות',name:'בגדים לחג לכולם',done:false,priority:'important',location:'out'},
+  {id:164,domain:'home',subcat:'לעשות',name:'ספרי תנך שטיינזלץ — כרכי שמואל ומלכים',done:false,priority:'low',location:'out'},
+  {id:165,domain:'home',subcat:'לעשות',name:'קרש יפה לחלות לשבת',done:false,priority:'low',location:'out'},
+  {id:166,domain:'home',subcat:'לעשות',name:'לבטל כרטיסי שופרסל — להעביר הוראות קבע',done:false,priority:'important',location:'out'},
+  {id:167,domain:'home',subcat:'לעשות',name:'לשבת על כל החסכונות והביטוחים',done:false,priority:'important',location:'out'},
+  {id:168,domain:'home',subcat:'לעשות',name:'לבדוק יעוץ כספי — פנסיה וקרן השתלמות',done:false,priority:'low',location:'out'},
+  {id:169,domain:'home',subcat:'לעשות',name:'לקרוא את הספר השקעות לעצלנים',done:false,priority:'low',location:'out'},
+  {id:170,domain:'home',subcat:'לעשות',name:'לבדוק חסכון לילדים — אולי להגדיל',done:false,priority:'low',location:'out'},
+  // יהדות
+  {id:1,domain:'judaism',subcat:'לעשות',name:'לידורי מקווה',done:false,priority:'urgent'},
+  {id:2,domain:'judaism',subcat:'לעשות',name:'לקנות ציצית צמר נורמלית ליום יום',done:false,priority:'low'},
+  {id:3,domain:'judaism',subcat:'לעשות',name:'תמונה יפה של הרבי לכניסה',done:false,priority:'important'},
+  {id:4,domain:'judaism',subcat:'לעשות',name:'ציציות טקטיות למילואים',done:false,priority:'important'},
+  // עבודה
+  {id:50,domain:'work',subcat:'לעשות',name:'לבדוק לגבי שכר של מני',done:false,priority:'yellow'},
+  {id:51,domain:'work',subcat:'לעשות',name:'סטטוס ראשי צוותים',done:false,priority:'yellow'},
+  {id:52,domain:'work',subcat:'לעשות',name:'רכב ליניב',done:false,priority:'yellow'},
+  {id:53,domain:'work',subcat:'לעשות',name:'צידניות חצר',done:false,priority:'yellow'},
+  {id:54,domain:'work',subcat:'לעשות',name:'שכר שי',done:false,priority:'yellow'},
+  {id:55,domain:'work',subcat:'לעשות',name:'מחשבים לעמדות ביקורת 4+15',done:false,priority:'yellow'},
+  {id:56,domain:'work',subcat:'לעשות',name:'שכר עלי',done:false,priority:'yellow'},
+  {id:57,domain:'work',subcat:'לעשות',name:'שיחת אזהרה עם הסופרוויזר של ארז',done:false,priority:'yellow'},
+  {id:58,domain:'work',subcat:'לעשות',name:'שקף שבועי לאביחי',done:false,priority:'yellow'},
+  {id:59,domain:'work',subcat:'לעשות',name:'בקרות חג כשל"פ',done:false,priority:'yellow'},
+  {id:60,domain:'work',subcat:'לעשות',name:'לשבת על חיל — ללמוד את המערכת',done:false,priority:'yellow'},
+  {id:61,domain:'work',subcat:'לעשות',name:'תהליך טיפול בנעדרים',done:false,priority:'yellow'},
+  {id:62,domain:'work',subcat:'לעשות',name:'טיפול בעובדים חריגים — ידיים ופגומים',done:false,priority:'yellow'},
+  {id:63,domain:'work',subcat:'לעשות',name:'התייחסות למפגע רעש בנקוס אפור',done:false,priority:'yellow'},
+  {id:64,domain:'work',subcat:'לעשות',name:'טיפול בימים למחיקה',done:false,priority:'yellow'},
+  {id:65,domain:'work',subcat:'לעשות',name:'תקשור לשריהאן לגבי ניוד לתפקיד',done:false,priority:'urgent'},
+  {id:66,domain:'work',subcat:'לעשות',name:'שיבוצים חילן מני ואוראל',done:false,priority:'urgent'},
+  {id:67,domain:'work',subcat:'לעשות',name:'כתיבת נוהל שימוש בשקיות בפורמט CFC',done:false,priority:'urgent'},
+  {id:68,domain:'work',subcat:'לעשות',name:'טיוב תיקיות',done:false,priority:'important'},
+  {id:69,domain:'work',subcat:'לעשות',name:'בניית תכנית עבודה אישית ויומית',done:false,priority:'important'},
+  {id:70,domain:'work',subcat:'לעשות',name:'אפיון שגרות מחדש מנהל פעילות + ראש צוות',done:false,priority:'important'},
+  {id:71,domain:'work',subcat:'לעשות',name:'אפיון מצגת שבועית פורום מנהלים',done:false,priority:'important'},
+  {id:72,domain:'work',subcat:'לעשות',name:'אפיון מצגת חודשית פורום מורחב',done:false,priority:'important'},
+  {id:73,domain:'work',subcat:'לעשות',name:'משרדים — לבצע סדר וניקיון והגדרות נהלים',done:false,priority:'important'},
+  {id:74,domain:'work',subcat:'לעשות',name:'אפיון תהליך חניכה לעובד חדש — טופס קליטה',done:false,priority:'important'},
+  {id:75,domain:'work',subcat:'לעשות',name:'טיפול חרמוניות',done:false,priority:'important'},
+  {id:76,domain:'work',subcat:'לעשות',name:'החלפת משקלים — אין מדבקות כיול',done:false,priority:'low'},
+  {id:77,domain:'work',subcat:'לעשות',name:'לבדוק הזמנת חליפות יותר טובות למקפיא ייצור',done:false,priority:'low'},
+  {id:78,domain:'work',subcat:'לעשות',name:'בעיות ארגונומיות בגלל גובה שולחנות',done:false,priority:'low'},
+  // מילואים
+  {id:90,domain:'miluim',subcat:'לעשות',name:'מועמדים מורייה ודגנית',done:false,priority:'important'},
+  {id:91,domain:'miluim',subcat:'לעשות',name:'היערכות לאימון השלמה נוסף',done:false,priority:'important'},
+  {id:92,domain:'miluim',subcat:'לעשות',name:'אבחון פלוגה והכנת מצגת למח"ט',done:false,priority:'important'},
+  {id:93,domain:'miluim',subcat:'לעשות',name:'שיחות הדחה ושינויים — וידוא מול כל מ"מ',done:false,priority:'important'},
+  {id:94,domain:'miluim',subcat:'לעשות',name:'קבלת נשקים לבית המשך',done:false,priority:'important'},
+  {id:95,domain:'miluim',subcat:'לעשות',name:'מיקודים: כוננות, מוכנות, לכידות, כושר קרבי',done:false,priority:'important'},
+  {id:96,domain:'miluim',subcat:'לעשות',name:'עבודה על בוחן לוחם (עקיבא?)',done:false,priority:'low'},
+  {id:97,domain:'miluim',subcat:'לעשות',name:'הכרות גזרה — עמק חפר, סיורי שטח',done:false,priority:'important'},
+  {id:98,domain:'miluim',subcat:'לעשות',name:'שיחות אישיות עם כל אחד בפלוגה',done:false,priority:'important'},
+  {id:99,domain:'miluim',subcat:'לעשות',name:'פונדה לקשר גדולה',done:false,priority:'low'},
+  {id:100,domain:'miluim',subcat:'לעשות',name:'אוזניית שב"כ טובה ומדונה עם חיבור',done:false,priority:'low'},
+  {id:101,domain:'miluim',subcat:'לעשות',name:'משקפי מגן מתכחות',done:false,priority:'low'},
+  {id:102,domain:'miluim',subcat:'לעשות',name:'פנס לקסדה + כיסוי קסדה',done:false,priority:'low'},
+  {id:103,domain:'miluim',subcat:'לעשות',name:'חגורה טובה לטקטי + חגורת לחימה עם פאוצ\'ים',done:false,priority:'low'},
+  {id:104,domain:'miluim',subcat:'לעשות',name:'מחסניות פולימריות איכותיות 7',done:false,priority:'low'},
+  // קריירה
+  {id:180,domain:'career',subcat:'לעשות',name:'לסיים פרופיל לינקדאין ולייצר קשרים',done:false,priority:'important'},
+  {id:181,domain:'career',subcat:'לעשות',name:'טיוב קורות חיים — עברית ואנגלית',done:false,priority:'important'},
+  {id:182,domain:'career',subcat:'לעשות',name:'קובץ קשרים ונטוורקינג לחיפוש עבודה',done:false,priority:'low'},
+  {id:183,domain:'career',subcat:'לעשות',name:'ללמוד עבודה עם AI — להיכנס לעולם הזה',done:false,priority:'urgent'},
+  {id:184,domain:'career',subcat:'לעשות',name:'לעבוד על פי דף הנחיות של איזבלה',done:false,priority:'low'},
+  {id:185,domain:'career',subcat:'לעשות',name:'לסכם קורס ניהול פרויקטים',done:false,priority:'low'},
+  {id:186,domain:'career',subcat:'לעשות',name:'פורום טל רבן — לקבוע פגישות',done:false,priority:'low'},
+  {id:187,domain:'career',subcat:'לעשות',name:'קורס אקסל או שיפור פונקציות מרכזיות',done:false,priority:'low'},
+  {id:188,domain:'career',subcat:'לעשות',name:'תכנת Monday',done:false,priority:'low'},
+  {id:189,domain:'career',subcat:'לעשות',name:'שימוש בכלי AI בעולם העבודה',done:false,priority:'low'},
+  // משפחה
+  {id:35,domain:'family',subcat:'לעשות',name:'ללכת למשחק כדורגל עם טוהר — לעזר בנוי',done:false,priority:'low'},
 ];
 
-// ── VERSION CHECK — clear old data if needed ──
-const APP_VERSION = '3.6';
-if(localStorage.getItem('app_version') !== APP_VERSION) {
-  localStorage.removeItem('tasks');
-  localStorage.removeItem('domains');
-  localStorage.removeItem('projects');
-  localStorage.setItem('app_version', APP_VERSION);
-}
+// ── VERSION CHECK — migrate data without losing user changes ──
+const APP_VERSION = '4.5';
+// לא מוחקים נתונים — רק מסמנים את הגרסה
+localStorage.setItem('app_version', APP_VERSION);
 
 const INITIAL_PROJECTS = [
-  {id:'p1', domain:'family', subcat:'תכנון אירועים', name:'ארגון בת מצווה לרביד', dueDate:'2026-09-01', done:false, taskIds:[]},
-  {id:'p2', domain:'family', subcat:'תכנון טיולים', name:'טיול קיץ — החווה של דני', dueDate:'2026-07-01', done:false, taskIds:[]},
-  {id:'p3', domain:'miluim', subcat:'היערכות לאירועים', name:'ערב פלוגה', dueDate:'', done:false, taskIds:[]},
+  // יהדות — חגים
+  {id:'p_rh',   domain:'judaism', subcat:'פרויקטים', name:'ראש השנה',        dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_yk',   domain:'judaism', subcat:'פרויקטים', name:'יום כיפור',        dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_suk',  domain:'judaism', subcat:'פרויקטים', name:'סוכות',            dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_han',  domain:'judaism', subcat:'פרויקטים', name:'חנוכה',            dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_tu',   domain:'judaism', subcat:'פרויקטים', name:'טו בשבט',          dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_pur',  domain:'judaism', subcat:'פרויקטים', name:'פורים',            dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_pes',  domain:'judaism', subcat:'פרויקטים', name:'פסח',              dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_yzs',  domain:'judaism', subcat:'פרויקטים', name:'יום הזכרון לשואה', dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_yzc',  domain:'judaism', subcat:'פרויקטים', name:'יום הזכרון לחללי מערכות ישראל', dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_yha',  domain:'judaism', subcat:'פרויקטים', name:'יום העצמאות',      dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_lag',  domain:'judaism', subcat:'פרויקטים', name:'לג בעומר',         dueDate:'', done:false, taskIds:[], yearly:true},
+  {id:'p_sha',  domain:'judaism', subcat:'פרויקטים', name:'שבועות',           dueDate:'', done:false, taskIds:[], yearly:true},
+  // משפחה
+  {id:'p_bat',  domain:'family',  subcat:'פרויקטים', name:'בת מצווה של רביד',  dueDate:'2027-09-01', done:false, taskIds:[]},
+  {id:'p_bar',  domain:'family',  subcat:'פרויקטים', name:'בר מצווה של טוהר',  dueDate:'2029-01-01', done:false, taskIds:[]},
+  {id:'p_tiy',  domain:'family',  subcat:'פרויקטים', name:'טיול בקיץ',          dueDate:'2026-07-01', done:false, taskIds:[]},
+  {id:'p_chm',  domain:'family',  subcat:'פרויקטים', name:'טיול חול המועד',     dueDate:'',           done:false, taskIds:[]},
+  // ניהול הבית
+  {id:'p_mar',  domain:'home',    subcat:'פרויקטים', name:'ארגון המרפסת',        dueDate:'', done:false, taskIds:[]},
+  {id:'p_ren',  domain:'home',    subcat:'פרויקטים', name:'שיפוץ ושדרוג הבית',  dueDate:'', done:false, taskIds:[]},
+  {id:'p_bat2', domain:'home',    subcat:'פרויקטים', name:'שיפוץ מקלחת הורים',  dueDate:'', done:false, taskIds:[]},
+  // מילואים
+  {id:'p_eve',  domain:'miluim',  subcat:'פרויקטים', name:'ערב פלוגה',          dueDate:'', done:false, taskIds:[]},
+  {id:'p_emer', domain:'miluim',  subcat:'פרויקטים', name:'היערכות לחרום',      dueDate:'', done:false, taskIds:[]},
+  // מוסיקה
+  {id:'p_gear', domain:'music',   subcat:'פרויקטים', name:'ארגון ציוד',          dueDate:'', done:false, taskIds:[]},
+  // קריירה
+  {id:'p_lin',  domain:'career',  subcat:'פרויקטים', name:'פתיחת פרופיל לינקדאין', dueDate:'', done:false, taskIds:[]},
 ];
 
 let tasks = JSON.parse(localStorage.getItem('tasks') || 'null') || INITIAL_TASKS.map(t=>({...t}));
@@ -583,6 +760,274 @@ function save() {
   localStorage.setItem('domains', JSON.stringify(domains));
   localStorage.setItem('projects', JSON.stringify(projects));
 }
+
+// ── PEOPLE ──
+const PEOPLE = [
+  {id:'tomer',   name:'תומר',   icon:'💼', domains:['work']},
+  {id:'yaniv',   name:'יניב',   icon:'💼', domains:['work']},
+  {id:'kfir',    name:'כפיר',   icon:'🪖', domains:['miluim']},
+  {id:'aviram',  name:'אבירם',  icon:'🪖', domains:['miluim']},
+  {id:'lidori',  name:'לידורי', icon:'💑', domains:['couple','family']},
+  {id:'shaham',  name:'שחם',    icon:'👨‍👩‍👧', domains:['family']},
+  {id:'ravid',   name:'רביד',   icon:'👨‍👩‍👧', domains:['family']},
+  {id:'tohar',   name:'טוהר',   icon:'👨‍👩‍👧', domains:['family']},
+  {id:'asif',    name:'אסיף',   icon:'👨‍👩‍👧', domains:['family']},
+];
+
+let selectedPeople = new Set();
+let peopleSearchOpen = false;
+
+function getPeopleForDomain(domId) {
+  const filtered = PEOPLE.filter(p => p.domains.includes(domId));
+  return filtered.length > 0 ? filtered : PEOPLE;
+}
+
+function renderPeopleField() {
+  const domId = document.getElementById('domainSelect')?.value || '';
+  const available = getPeopleForDomain(domId);
+  const searchVal = document.getElementById('peopleSearch')?.value?.toLowerCase() || '';
+  const filtered = searchVal ? available.filter(p=>p.name.includes(searchVal)) : available;
+
+  // chips of selected
+  const selected = [...selectedPeople].map(id=>{
+    const p = PEOPLE.find(p=>p.id===id);
+    return p ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(91,141,238,.15);color:var(--c1);font-size:12px;font-weight:600">
+      ${p.icon} ${p.name}
+      <button onclick="togglePerson('${p.id}')" style="background:none;border:none;color:var(--c1);cursor:pointer;font-size:13px;padding:0;line-height:1">×</button>
+    </span>` : '';
+  }).join('');
+
+  // dropdown list
+  const dropItems = filtered.filter(p=>!selectedPeople.has(p.id)).map(p=>
+    `<div onclick="togglePerson('${p.id}')" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background=''">
+      <span>${p.icon}</span><span>${p.name}</span>
+    </div>`
+  ).join('');
+
+  const el = document.getElementById('peopleFieldInner');
+  if(!el) return;
+  el.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:${selected?'6px':'0'}">${selected}</div>
+    <div style="position:relative">
+      <input id="peopleSearch" type="text" placeholder="חפש או הוסף אדם..."
+        class="modal-input" style="padding-left:32px"
+        oninput="renderPeopleField()"
+        onfocus="document.getElementById('peopleDropdown').style.display='block'"
+        onblur="setTimeout(()=>{const d=document.getElementById('peopleDropdown');if(d)d.style.display='none'},200)">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none">👤</span>
+      <div id="peopleDropdown" style="display:none;position:absolute;top:100%;right:0;left:0;background:var(--s1);border:1px solid var(--border);border-radius:10px;z-index:100;max-height:160px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.1);margin-top:4px">
+        ${dropItems || `<div style="padding:10px 12px;color:var(--muted);font-size:12px">אין תוצאות</div>`}
+      </div>
+    </div>`;
+}
+
+function togglePerson(id) {
+  if(selectedPeople.has(id)) selectedPeople.delete(id);
+  else selectedPeople.add(id);
+  const searchEl = document.getElementById('peopleSearch');
+  if(searchEl) searchEl.value = '';
+  renderPeopleField();
+}
+
+function renderPeopleChips() { renderPeopleField(); }
+let notifTimers = {};
+let activeRoutineState = {}; // {taskId: {phase:'started'|'waiting', startTime, delayCount, extendCount}}
+
+async function requestNotifPermission() {
+  if(!('Notification' in window)) return false;
+  if(Notification.permission === 'granted') return true;
+  if(Notification.permission === 'denied') return false;
+  const perm = await Notification.requestPermission();
+  return perm === 'granted';
+}
+
+function sendNotif(title, body, actions, taskId) {
+  if(Notification.permission !== 'granted') return;
+  const n = new Notification(title, {
+    body, icon: '🧠',
+    tag: `ozi-${taskId}`,
+    requireInteraction: true
+  });
+  n.onclick = () => { window.focus(); showRoutinePrompt(taskId, actions); n.close(); };
+  return n;
+}
+
+function showRoutinePrompt(taskId, phase) {
+  const t = tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const dom = domains.find(d=>d.id===t.domain);
+  const state = activeRoutineState[taskId] || {};
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-size:15px;font-weight:800">⚡ OZI</div>
+    <button onclick="document.getElementById('routinePromptOverlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
+  </div>
+  <div style="background:${dom?.color||'#5b8dee'}15;border:1px solid ${dom?.color||'#5b8dee'}40;border-radius:14px;padding:14px;margin-bottom:16px;text-align:center">
+    <div style="font-size:24px">${dom?.icon||'🔁'}</div>
+    <div style="font-size:16px;font-weight:800;margin-top:6px">${t.name}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">${dom?.name} · ${t.routine?.duration||30} דק׳</div>
+  </div>`;
+
+  if(phase === 'start') {
+    html += `<div style="font-size:15px;font-weight:700;text-align:center;margin-bottom:16px">הגיע הזמן! מתחיל? 🚀</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="onRoutineStart(${taskId})" style="flex:1;padding:14px;background:linear-gradient(135deg,#3ecf8e,#2ab37a);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">✅ התחלתי!</button>
+      <button onclick="onRoutineDelay(${taskId})" style="flex:1;padding:14px;background:var(--s3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">⏰ דחה 15 דק׳</button>
+    </div>`;
+  } else if(phase === 'done') {
+    html += `<div style="font-size:15px;font-weight:700;text-align:center;margin-bottom:16px">סיימת? 🎯</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="onRoutineDone(${taskId})" style="flex:1;padding:14px;background:linear-gradient(135deg,#5b8dee,#3a6ee8);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">✅ סיימתי!</button>
+      <button onclick="onRoutineExtend(${taskId})" style="flex:1;padding:14px;background:var(--s3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">➕ עוד 15 דק׳</button>
+    </div>`;
+  } else if(phase === 'skip_confirm') {
+    html += `<div style="font-size:14px;font-weight:700;text-align:center;margin-bottom:16px">דחית פעמיים 😅<br>מה תרצה לעשות?</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button onclick="onRoutineReschedule(${taskId})" style="padding:13px;background:var(--s3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">📅 דחה לשעה אחרת היום</button>
+      <button onclick="onRoutineSkipConfirm(${taskId})" style="padding:13px;background:rgba(240,71,71,.1);border:1px solid rgba(240,71,71,.3);border-radius:12px;color:var(--red);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer">❌ לדלג על היום</button>
+    </div>`;
+  } else if(phase === 'skip_sure') {
+    html += `<div style="font-size:14px;font-weight:700;text-align:center;margin-bottom:16px">בטוח שאתה רוצה לוותר? 🤔</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="onRoutineSkipFinal(${taskId})" style="flex:1;padding:13px;background:rgba(240,71,71,.1);border:1px solid rgba(240,71,71,.3);border-radius:12px;color:var(--red);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">כן, לוותר</button>
+      <button onclick="onRoutineDelay(${taskId})" style="flex:1;padding:13px;background:var(--s3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">לא, דחה 15</button>
+    </div>`;
+  } else if(phase === 'reschedule') {
+    html += `<div style="font-size:14px;font-weight:700;margin-bottom:12px">בחר שעה חדשה להיום:</div>
+    <input type="time" id="rescheduleTime" class="modal-input" style="direction:ltr;margin-bottom:12px">
+    <button onclick="onRoutineRescheduleSave(${taskId})" style="width:100%;padding:13px;background:linear-gradient(135deg,#5b8dee,#3a6ee8);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">✅ קבע שעה חדשה</button>`;
+  }
+
+  document.getElementById('routinePromptContent').innerHTML = html;
+  document.getElementById('routinePromptOverlay').classList.add('open');
+}
+
+function onRoutineStart(taskId) {
+  const t = tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  activeRoutineState[taskId] = {phase:'started', startTime:Date.now(), delayCount:0, extendCount:0};
+  document.getElementById('routinePromptOverlay').classList.remove('open');
+  const duration = (t.routine?.duration || 30) * 60 * 1000;
+  clearTimeout(notifTimers['done_'+taskId]);
+  notifTimers['done_'+taskId] = setTimeout(()=>showRoutinePrompt(taskId,'done'), duration);
+}
+
+function onRoutineDelay(taskId) {
+  const state = activeRoutineState[taskId] || {delayCount:0};
+  state.delayCount = (state.delayCount||0) + 1;
+  activeRoutineState[taskId] = state;
+  document.getElementById('routinePromptOverlay').classList.remove('open');
+  if(state.delayCount >= 2) {
+    clearTimeout(notifTimers['start_'+taskId]);
+    notifTimers['start_'+taskId] = setTimeout(()=>showRoutinePrompt(taskId,'skip_confirm'), 15*60*1000);
+  } else {
+    clearTimeout(notifTimers['start_'+taskId]);
+    notifTimers['start_'+taskId] = setTimeout(()=>showRoutinePrompt(taskId,'start'), 15*60*1000);
+  }
+}
+
+function onRoutineDone(taskId) {
+  clearTimeout(notifTimers['done_'+taskId]);
+  document.getElementById('routinePromptOverlay').classList.remove('open');
+  delete activeRoutineState[taskId];
+  toggleTask(taskId);
+  showToast(`🎉 "${tasks.find(t=>t.id===taskId)?.name||''}" הושלם!`, null);
+}
+
+function onRoutineExtend(taskId) {
+  const state = activeRoutineState[taskId] || {extendCount:0};
+  state.extendCount = (state.extendCount||0) + 1;
+  activeRoutineState[taskId] = state;
+  document.getElementById('routinePromptOverlay').classList.remove('open');
+  if(state.extendCount >= 2) {
+    showRoutinePrompt(taskId, 'done'); // שאל שוב ואפשר להאריך עוד
+    return;
+  }
+  clearTimeout(notifTimers['done_'+taskId]);
+  notifTimers['done_'+taskId] = setTimeout(()=>showRoutinePrompt(taskId,'done'), 15*60*1000);
+}
+
+function onRoutineSkipConfirm(taskId) { showRoutinePrompt(taskId, 'skip_sure'); }
+
+function onRoutineSkipFinal(taskId) {
+  document.getElementById('routinePromptOverlay').classList.remove('open');
+  delete activeRoutineState[taskId];
+  const t = tasks.find(t=>t.id===taskId);
+  if(t && t.priority==='routine') {
+    t.sleepUntil = calcNextRoutine(t);
+    save();
+  }
+  showToast('⏭️ דולג להיום — יחזור מחר', null);
+}
+
+function onRoutineReschedule(taskId) { showRoutinePrompt(taskId, 'reschedule'); }
+
+function onRoutineRescheduleSave(taskId) {
+  const timeVal = document.getElementById('rescheduleTime').value;
+  if(!timeVal) return;
+  document.getElementById('routinePromptOverlay').classList.remove('open');
+  delete activeRoutineState[taskId];
+  clearTimeout(notifTimers['start_'+taskId]);
+  const [h,m] = timeVal.split(':').map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(h,m,0,0);
+  const delay = target - now;
+  if(delay > 0) {
+    notifTimers['start_'+taskId] = setTimeout(()=>showRoutinePrompt(taskId,'start'), delay);
+    showToast(`📅 נקבע מחדש ל-${timeVal}`, null);
+  }
+}
+
+function scheduleRoutineNotifs() {
+  // נקה טיימרים ישנים
+  Object.values(notifTimers).forEach(t=>clearTimeout(t));
+  notifTimers = {};
+
+  const now = new Date();
+  const totalMin = now.getHours()*60 + now.getMinutes();
+  const dow = now.getDay();
+  if(dow === 6) return; // שבת
+
+  const todayRoutines = tasks.filter(t => {
+    if(t.priority !== 'routine' || !t.routine?.time) return false;
+    const r = t.routine;
+    const activeDays = r.days && r.days.length > 0 ? r.days : [0,1,2,3,4,5];
+    if(!activeDays.includes(dow)) return false;
+    if(r.freq==='monthly' && r.dayOfMonth && now.getDate()!==r.dayOfMonth) return false;
+    if((r.freq==='biannual'||r.freq==='yearly') && r.nextDate) {
+      const nd = new Date(r.nextDate);
+      if(nd.getDate()!==now.getDate()||nd.getMonth()!==now.getMonth()) return false;
+    }
+    return true;
+  });
+
+  todayRoutines.forEach(t => {
+    const [h,m] = t.routine.time.split(':').map(Number);
+    const taskMin = h*60+m;
+    const msToTask = (taskMin - totalMin) * 60 * 1000;
+    const msToReminder = msToTask - 10*60*1000;
+
+    // תזכורת 10 דק' לפני
+    if(msToReminder > 0) {
+      notifTimers['remind_'+t.id] = setTimeout(()=>{
+        sendNotif(`⏰ בעוד 10 דקות`, t.name, 'remind', t.id);
+      }, msToReminder);
+    }
+    // שאלת התחלה
+    if(msToTask > 0) {
+      notifTimers['start_'+t.id] = setTimeout(()=>{
+        showRoutinePrompt(t.id, 'start');
+        sendNotif(`🚀 הגיע הזמן!`, t.name, 'start', t.id);
+      }, msToTask);
+    }
+  });
+}
+
+// הפעל תזמון בטעינה ורענן כל שעה
+scheduleRoutineNotifs();
+setInterval(scheduleRoutineNotifs, 60*60*1000);
+requestNotifPermission();
 
 // ── DATE ──
 const d=new Date();
@@ -614,17 +1059,30 @@ try {
 }
 const moHe=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 document.getElementById('hdrDayName').textContent = `יום ${wd[d.getDay()]}`;
-document.getElementById('hdrDateEn').textContent = `${d.getDate()} ב${moHe[d.getMonth()]} ${d.getFullYear()}`;
+document.getElementById('hdrDateEn').textContent = `${d.getDate()} ${moHe[d.getMonth()]} ${d.getFullYear()}`;
+
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const el = document.getElementById('hdrClock');
+  if(el) el.textContent = `${h}:${m}`;
+}
+updateClock();
+setInterval(updateClock, 10000);
 
 // ── TABS ──
 function go(name) {
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['dash','tasks','today','now'][i]===name));
+  const tabNames = ['dash','tasks','routines','projects'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on', tabNames[i]===name));
   document.querySelectorAll('.panel,.chat-panel').forEach(p=>p.classList.remove('on'));
-  document.getElementById('panel-'+name).classList.add('on');
+  const panel = document.getElementById('panel-'+name);
+  if(panel) { panel.classList.add('on'); panel.style.display=''; }
   if(name==='tasks') renderTasks();
   if(name==='dash') renderDash();
   if(name==='today') renderToday();
-  if(name==='now') renderNow();
+  if(name==='routines') renderRoutines();
+  if(name==='projects') renderProjects();
 }
 
 function toggleChat() {
@@ -639,131 +1097,460 @@ function closeChat() {
 }
 
 // ── RENDER NOW ──
-function renderNow() {
+function showNowPopup() {
   const now = new Date();
   const hour = now.getHours();
   const min = now.getMinutes();
   const totalMin = hour * 60 + min;
   const dow = now.getDay();
-  const isFriday = dow === 5;
-  const isThursday = dow === 4;
 
-  // next 60 min slots
-  const nextMin = totalMin + 60;
+  const routineTasks = tasks.filter(t => t.priority==='routine' && t.routine?.time);
+  const upcoming = routineTasks.filter(t => {
+    const r = t.routine;
+    const activeDays = r.days && r.days.length > 0 ? r.days : [0,1,2,3,4,5];
+    if(!activeDays.includes(dow)) return false;
+    const [h,m] = r.time.split(':').map(Number);
+    const startMin = h*60+m;
+    return startMin >= totalMin && startMin <= totalMin+120;
+  }).sort((a,b)=>{
+    const [ah,am]=a.routine.time.split(':').map(Number);
+    const [bh,bm]=b.routine.time.split(':').map(Number);
+    return (ah*60+am)-(bh*60+bm);
+  });
 
-  // Define all daily slots with start/end times
-  const allSlots = [
-    {start:4*60,    end:4*60+10,  icon:'🌅', title:'קימה + מודה אני',       detail:'לקום, להתארגן', color:'#f0a040', type:'routine'},
-    {start:4*60+10, end:4*60+20,  icon:'✡️', title:'ברכות השחר',            detail:'10 דקות מהסידור', color:'#5b8dee', type:'routine'},
-    {start:5*60,    end:6*60+30,  icon:'🏃', title:'אימון בוקר',             detail:'חדר כושר או ריצה', color:'#3ecf8e', type:'routine'},
-    {start:7*60,    end:7*60+45,  icon:'🕍', title:'שחרית',                  detail:'45 דקות תפילה', color:'#5b8dee', type:'routine'},
-    {start:7*60+45, end:8*60,     icon:'📖', title:'לימוד בוקר',             detail:'תהילים + חומש + תניא', color:'#5b8dee', type:'routine'},
-    {start:8*60,    end:12*60,    icon:'💼', title:'עבודה — בוקר',           detail:'משימות ופגישות', color:'#4ec9f0', type:'work'},
-    {start:12*60,   end:12*60+30, icon:'🥗', title:'ארוחת צהריים',           detail:'לפי תפריט הדיאטנית', color:'#3ecf8e', type:'routine'},
-    {start:13*60,   end:13*60+15, icon:'📖', title:'רמב"ם יומי',             detail:'15 דקות', color:'#5b8dee', type:'routine'},
-    {start:13*60+15,end:13*60+40, icon:'🕍', title:'מנחה',                   detail:'25 דקות', color:'#5b8dee', type:'routine'},
-    {start:13*60+40,end:17*60,    icon:'💼', title:'עבודה — אחה"צ',          detail:'משימות ופגישות', color:'#4ec9f0', type:'work'},
-    {start:17*60,   end:18*60,    icon:'🚗', title:'נסיעה הביתה',            detail:'שעה נסיעה', color:'#888', type:'transit'},
-    {start:18*60+15,end:18*60+30, icon:'🕍', title:'ערבית',                  detail:'15 דקות', color:'#5b8dee', type:'routine'},
-    {start:18*60+45,end:20*60+15, icon:'🍳', title:'בישול + ארוחת ערב',     detail:'ארוחה משפחתית ב-19:30', color:'#f06fa0', type:'routine'},
-    {start:20*60+15,end:20*60+45, icon:'📖', title:'לימוד ערב',              detail:'30 דקות', color:'#5b8dee', type:'routine'},
-    {start:20*60+45,end:21*60+15, icon:'🏠', title:'ארגון הבית',             detail:'30 דקות', color:'#f06fa0', type:'routine'},
-    {start:21*60+15,end:21*60+45, icon:'🎯', title:'זמן פנוי',               detail:'משימות דיגיטליות', color:'#c084f5', type:'free'},
-    {start:21*60+45,end:24*60,    icon:'😴', title:'שינה',                   detail:'', color:'#888', type:'sleep'},
+  const urgent = tasks.filter(t=>!t.done&&t.priority==='urgent'&&t.priority!=='routine');
+  const manager = tasks.filter(t=>!t.done&&t.priority==='yellow');
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-size:16px;font-weight:800">⚡ עכשיו — ${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}</div>
+    <button onclick="document.getElementById('nowOverlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
+  </div>`;
+
+  if(upcoming.length) {
+    html += `<div class="sec">⏰ בשעתיים הקרובות</div>`;
+    upcoming.forEach(t => {
+      const dom = domains.find(d=>d.id===t.domain);
+      const [h,m] = t.routine.time.split(':').map(Number);
+      const inMin = (h*60+m) - totalMin;
+      const isDone = !!t.sleepUntil && new Date(t.sleepUntil) > now;
+      html += `<div style="background:var(--s2);border:1px solid var(--border);border-right:3px solid ${dom?.color||'#888'};border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+        <div style="text-align:center;flex-shrink:0">
+          <div style="font-size:12px;font-weight:700;color:${dom?.color}">${t.routine.time}</div>
+          <div style="font-size:10px;color:var(--muted)">בעוד ${inMin} דק׳</div>
+        </div>
+        <div style="font-size:18px">${dom?.icon||'🔁'}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:600">${t.name}</div><div style="font-size:10px;color:var(--muted)">${dom?.name}</div></div>
+        <div class="task-cb ${isDone?'done':''}" onclick="toggleTask(${t.id});showNowPopup()" style="flex-shrink:0;width:20px;height:20px;font-size:10px">${isDone?'✓':''}</div>
+      </div>`;
+    });
+  } else {
+    html += `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">אין שגרות בשעתיים הקרובות</div>`;
+  }
+
+  if(manager.length || urgent.length) {
+    html += `<div class="sec" style="margin-top:8px">🔴 דחוף עכשיו</div>`;
+    [...manager.slice(0,2), ...urgent.slice(0,3)].forEach(t => {
+      const dom = domains.find(d=>d.id===t.domain);
+      const color = t.priority==='yellow'?'#f0c030':'var(--red)';
+      html += `<div class="task-item" style="border-right:3px solid ${color}">
+        <div class="task-cb" onclick="toggleTask(${t.id});showNowPopup()">${t.done?'✓':''}</div>
+        <div class="task-body"><div class="task-name">${t.name}</div>
+        <div style="font-size:10px;color:var(--muted)">${dom?.icon} ${dom?.name}</div></div>
+      </div>`;
+    });
+  }
+
+  document.getElementById('nowContent').innerHTML = html;
+  document.getElementById('nowOverlay').classList.add('open');
+}
+function renderNow() {
+  renderDashboard();
+}
+
+function renderDashboard() {
+  const el = document.getElementById('panel-now');
+  const now = new Date();
+  const totalTasks = tasks.filter(t=>t.priority!=='routine').length;
+  const doneTasks = tasks.filter(t=>t.done&&t.priority!=='routine').length;
+  const openTasks = tasks.filter(t=>!t.done&&t.priority!=='routine').length;
+  const urgentTasks = tasks.filter(t=>!t.done&&t.priority==='urgent').length;
+  const donePercent = totalTasks ? Math.round(doneTasks/totalTasks*100) : 0;
+
+  // שגרות — אחוז עמידה השבוע
+  const routines = tasks.filter(t=>t.priority==='routine');
+  const routinesDoneToday = routines.filter(t=>t.sleepUntil && new Date(t.sleepUntil) > now).length;
+  const routinesTotal = routines.filter(t=>{
+    const r = t.routine;
+    if(!r) return false;
+    const dow = now.getDay();
+    const activeDays = r.days&&r.days.length>0?r.days:[0,1,2,3,4,5];
+    return activeDays.includes(dow);
+  }).length;
+  const routinePercent = routinesTotal ? Math.round(routinesDoneToday/routinesTotal*100) : 0;
+
+  // פרויקטים
+  const allProjects = projects.filter(p=>!p.done);
+  const projectsWithTasks = allProjects.map(p=>{
+    const pTasks = tasks.filter(t=>t.projectId===p.id);
+    const pDone = pTasks.filter(t=>t.done).length;
+    return {...p, total:pTasks.length, done:pDone, pct:pTasks.length?Math.round(pDone/pTasks.length*100):0};
+  }).filter(p=>p.total>0).slice(0,5);
+
+  function bar(pct, color) {
+    return `<div style="background:var(--s3);border-radius:6px;height:8px;overflow:hidden;margin-top:6px">
+      <div style="background:${color};height:100%;width:${pct}%;border-radius:6px;transition:width .4s"></div>
+    </div>`;
+  }
+
+  let html = `<div style="font-size:16px;font-weight:800;margin-bottom:16px">📊 דשבורד</div>`;
+
+  // סטטיסטיקות ראשיות
+  html += `<div class="stats" style="margin-bottom:16px">
+    <div class="stat-box"><div class="stat-n" style="color:#5b8dee">${openTasks}</div><div class="stat-l">פתוחות</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:#3ecf8e">${doneTasks}</div><div class="stat-l">בוצעו</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:var(--red)">${urgentTasks}</div><div class="stat-l">דחוף</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:#c084f5">${allProjects.length}</div><div class="stat-l">פרויקטים</div></div>
+  </div>`;
+
+  // ביצוע משימות
+  html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;font-weight:700">✅ ביצוע משימות</div>
+      <div style="font-size:18px;font-weight:800;color:#3ecf8e">${donePercent}%</div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px">${doneTasks} מתוך ${totalTasks} משימות בוצעו</div>
+    ${bar(donePercent,'#3ecf8e')}
+  </div>`;
+
+  // עמידה בשגרות היום
+  html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:13px;font-weight:700">🔁 שגרות היום</div>
+      <div style="font-size:18px;font-weight:800;color:#5b8dee">${routinePercent}%</div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px">${routinesDoneToday} מתוך ${routinesTotal} שגרות בוצעו היום</div>
+    ${bar(routinePercent,'#5b8dee')}
+  </div>`;
+
+  // התפלגות לפי עדיפות
+  html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px">📋 התפלגות משימות פתוחות</div>
+    <div style="display:flex;flex-direction:column;gap:6px">`;
+  const groups = [
+    {label:'⭐ ממנהל ישיר', key:'yellow', color:'#f0c030'},
+    {label:'🔴 דחוף', key:'urgent', color:'#f04747'},
+    {label:'🟠 חשוב', key:'important', color:'#f07030'},
+    {label:'🟢 לא דחוף', key:'low', color:'#3ecf8e'},
+    {label:'📋 כללי', key:'', color:'#888'},
   ];
+  groups.forEach(g => {
+    const cnt = tasks.filter(t=>!t.done&&t.priority===g.key&&t.priority!=='routine').length;
+    if(!cnt) return;
+    const pct = openTasks ? Math.round(cnt/openTasks*100) : 0;
+    html += `<div style="display:flex;align-items:center;gap:8px">
+      <div style="font-size:11px;width:100px;flex-shrink:0">${g.label}</div>
+      <div style="flex:1;background:var(--s3);border-radius:4px;height:6px">
+        <div style="background:${g.color};height:100%;width:${pct}%;border-radius:4px"></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:${g.color};width:24px;text-align:left">${cnt}</div>
+    </div>`;
+  });
+  html += `</div></div>`;
 
-  // Find current slot
-  const currentSlot = allSlots.find(s => totalMin >= s.start && totalMin < s.end);
-  // Find next slot within 60 min
-  const upcomingSlots = allSlots.filter(s => s.start > totalMin && s.start <= nextMin);
-
-  // Work tasks for work slots
-  const urgentWork = tasks.filter(t=>!t.done && t.domain==='work' && t.priority==='urgent');
-  const importantWork = tasks.filter(t=>!t.done && t.domain==='work' && (t.priority==='important'||t.priority==='yellow'));
-  const digitalTasks = tasks.filter(t=>!t.done && ['career','finance','judaism'].includes(t.domain) && t.priority!=='urgent');
-
-  let html = '';
-
-  // ── CURRENT ──
-  if(currentSlot) {
-    html += `<div style="background:linear-gradient(135deg,${currentSlot.color}25,${currentSlot.color}10);border:1px solid ${currentSlot.color}50;border-radius:18px;padding:18px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:${currentSlot.color};letter-spacing:.08em;margin-bottom:8px">⚡ עכשיו — ${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}</div>
-      <div style="font-size:22px;margin-bottom:4px">${currentSlot.icon}</div>
-      <div style="font-size:18px;font-weight:800;margin-bottom:4px">${currentSlot.title}</div>
-      <div style="font-size:13px;color:var(--muted)">${currentSlot.detail}</div>`;
-
-    // Show relevant tasks for this slot
-    let slotTasks = [];
-    if(currentSlot.type==='work') slotTasks = [...urgentWork.slice(0,2), ...importantWork.slice(0,2)];
-    if(currentSlot.type==='free') slotTasks = digitalTasks.slice(0,3);
-
-    if(slotTasks.length) {
-      html += `<div style="margin-top:12px;border-top:1px solid ${currentSlot.color}30;padding-top:10px">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">המשימות שלך עכשיו:</div>`;
-      slotTasks.forEach(t => {
-        const dom = domains.find(d=>d.id===t.domain);
-        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid ${currentSlot.color}15">
-          <div class="task-cb ${t.done?'done':''}" onclick="toggleTask(${t.id});renderNow()" style="flex-shrink:0;width:18px;height:18px;font-size:10px">${t.done?'✓':''}</div>
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:600">${t.name}</div>
-            <div style="font-size:10px;color:var(--muted)">${dom?.icon} ${t.subcat}</div>
-          </div>
-        </div>`;
-      });
-      html += `</div>`;
-    }
+  // פרויקטים פעילים
+  if(projectsWithTasks.length) {
+    html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px">🎯 קצב התקדמות פרויקטים</div>`;
+    projectsWithTasks.forEach(p => {
+      const dom = domains.find(d=>d.id===p.domain);
+      html += `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;font-weight:600">${dom?.icon} ${p.name}</div>
+          <div style="font-size:12px;font-weight:700;color:${dom?.color||'#888'}">${p.pct}%</div>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">${p.done}/${p.total} משימות${p.dueDate?` · ⏳ ${formatDueDate(p.dueDate)}`:''}</div>
+        ${bar(p.pct, dom?.color||'#888')}
+      </div>`;
+    });
     html += `</div>`;
   }
 
-  // ── UPCOMING HOUR ──
-  html += `<div class="sec">בשעה הקרובה</div>`;
+  // התפלגות לפי תחום
+  html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:20px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px">🗂️ משימות לפי תחום</div>`;
+  domains.forEach(d => {
+    const cnt = tasks.filter(t=>!t.done&&t.domain===d.id&&t.priority!=='routine').length;
+    if(!cnt) return;
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="font-size:12px;width:130px;flex-shrink:0">${d.icon} ${d.name}</div>
+      <div style="flex:1;background:var(--s3);border-radius:4px;height:6px">
+        <div style="background:${d.color};height:100%;width:${openTasks?Math.round(cnt/openTasks*100):0}%;border-radius:4px"></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:${d.color};width:20px;text-align:left">${cnt}</div>
+    </div>`;
+  });
+  html += `</div>`;
 
-  if(upcomingSlots.length === 0) {
-    html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center;color:var(--muted);font-size:13px">אין אירועים בשעה הקרובה</div>`;
-  } else {
-    upcomingSlots.forEach(s => {
-      const startH = Math.floor(s.start/60);
-      const startM = s.start%60;
-      const inMin = s.start - totalMin;
-      html += `<div style="background:var(--s2);border:1px solid var(--border);border-right:3px solid ${s.color};border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
-        <div style="text-align:center;flex-shrink:0;width:36px">
-          <div style="font-size:12px;font-weight:700;color:${s.color}">${String(startH).padStart(2,'0')}:${String(startM).padStart(2,'0')}</div>
-          <div style="font-size:10px;color:var(--muted)">בעוד ${inMin} דק׳</div>
-        </div>
-        <div style="font-size:18px">${s.icon}</div>
-        <div>
-          <div style="font-size:13px;font-weight:600">${s.title}</div>
-          <div style="font-size:11px;color:var(--muted)">${s.detail}</div>
-        </div>
-      </div>`;
-    });
-  }
-
-  // ── URGENT REMINDER ──
-  const urgent = tasks.filter(t=>!t.done && t.priority==='urgent');
-  if(urgent.length) {
-    html += `<div class="sec">🔴 דחוף — לא לשכוח</div>`;
-    urgent.slice(0,3).forEach(t => {
-      const dom = domains.find(d=>d.id===t.domain);
-      html += `<div class="task-item" style="border-right:3px solid var(--red)" onclick="openEditTask(${t.id})">
-        <div class="task-cb ${t.done?'done':''}" onclick="event.stopPropagation();toggleTask(${t.id});renderNow()">${t.done?'✓':''}</div>
-        <div class="task-body">
-          <div class="task-name">${t.name}</div>
-          <div class="task-tags"><span class="tag tag-red">🔴 דחוף</span><span style="font-size:10px;color:var(--muted)">${dom?.icon} ${dom?.name}</span></div>
-        </div>
-      </div>`;
-    });
-  }
-
-  html += `<div style="height:30px"></div>`;
-  document.getElementById('panel-now').innerHTML = html;
+  el.innerHTML = html;
+}
+function showDashboardPopup() {
+  renderDashInOverlay();
+  document.getElementById('dashOverlay').classList.add('open');
 }
 
-// ── EDIT MODE ──
+// ── RENDER ROUTINES ──
+function renderRoutines() {
+  const el = document.getElementById('panel-routines');
+  const now = new Date();
+  const freqLabels = {daily:'📅 יומי', weekly:'📅 שבועי', biweekly:'📅 דו-שבועי', monthly:'📅 חודשי', biannual:'📅 חצי שנתי', yearly:'📅 שנתי'};
+
+  const slots = [
+    {label:'🌅 בוקר', sub:'04:00–12:00', from:4*60, to:12*60},
+    {label:'☀️ צהריים', sub:'12:00–18:00', from:12*60, to:18*60},
+    {label:'🌙 ערב', sub:'18:00–22:00', from:18*60, to:22*60},
+  ];
+
+  const routines = tasks.filter(t=>t.priority==='routine'&&t.routine?.time);
+  let html = `<div class="panel-header">
+    <div class="panel-header-title">🔁 שגרות</div>
+    <div class="panel-header-btns">
+      <button onclick="expandAllRoutines()" class="btn-expand-collapse">＋</button>
+      <button onclick="collapseAllRoutines()" class="btn-expand-collapse">－</button>
+    </div>
+  </div>`;
+
+  slots.forEach(slot => {
+    const slotRoutines = routines.filter(t=>{
+      const [h,m] = t.routine.time.split(':').map(Number);
+      const min = h*60+m;
+      return min >= slot.from && min < slot.to;
+    }).sort((a,b)=>{
+      const [ah,am]=a.routine.time.split(':').map(Number);
+      const [bh,bm]=b.routine.time.split(':').map(Number);
+      return (ah*60+am)-(bh*60+bm);
+    });
+    if(!slotRoutines.length) return;
+
+    html += `<div style="margin-bottom:12px" id="routine-slot-${slot.from}">
+      <div onclick="toggleRoutineSlot(${slot.from})" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;user-select:none">
+        <div style="font-size:14px;font-weight:800">${slot.label}</div>
+        <div style="font-size:11px;color:var(--muted)">${slot.sub}</div>
+        <div style="font-size:11px;background:var(--s3);border-radius:8px;padding:2px 8px;color:var(--muted);font-weight:600">${slotRoutines.length}</div>
+        <div id="routine-slot-chevron-${slot.from}" style="color:var(--muted);font-size:14px;margin-right:auto;transition:transform .2s;transform:rotate(180deg)">▾</div>
+      </div>
+      <div id="routine-slot-body-${slot.from}">`;
+
+    const byDomain = {};
+    slotRoutines.forEach(t=>{ if(!byDomain[t.domain]) byDomain[t.domain]=[]; byDomain[t.domain].push(t); });
+
+    Object.entries(byDomain).forEach(([domId, dRoutines])=>{
+      const dom = domains.find(d=>d.id===domId);
+      html += `<div style="background:var(--s2);border:1px solid var(--border);border-right:4px solid ${dom?.color||'#888'};border-radius:12px;margin-bottom:8px;overflow:hidden">
+        <div style="padding:8px 12px;background:${dom?.color||'#888'}10;font-size:12px;font-weight:700;color:${dom?.color||'#888'}">${dom?.icon} ${dom?.name}</div>`;
+      dRoutines.forEach(t=>{
+        const isDone = !!t.sleepUntil && new Date(t.sleepUntil) > now;
+        const freq = freqLabels[t.routine.freq]||'';
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--border)" onclick="openEditTask(${t.id})">
+          <div style="font-size:12px;font-weight:700;color:${dom?.color};flex-shrink:0;width:38px">${t.routine.time}</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;${isDone?'text-decoration:line-through;color:var(--muted)':''}">${t.name}</div>
+            <div style="font-size:10px;color:var(--muted)">${freq} · ${t.routine.duration||30} דק׳</div>
+          </div>
+          <div class="task-cb ${isDone?'done':''}" onclick="event.stopPropagation();toggleTask(${t.id});renderRoutines()" style="width:22px;height:22px;font-size:11px;flex-shrink:0">${isDone?'✓':''}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    html += `</div></div>`; // close slot-body and slot
+  });
+
+  if(!routines.length) html += `<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">🔁</div><div>אין שגרות מוגדרות</div></div>`;
+  html += `<div style="height:30px"></div>`;
+  el.innerHTML = html;
+  // כברירת מחדל — כל הבלוקים מכווצים
+  collapseAllRoutines();
+}
+
+// ── RENDER PROJECTS ──
+function renderProjects() {
+  const el = document.getElementById('panel-projects');
+  let html = `<div class="panel-header">
+    <div class="panel-header-title">🎯 פרויקטים</div>
+    <div class="panel-header-btns">
+      <button onclick="expandAllProjects()" class="btn-expand-collapse">＋</button>
+      <button onclick="collapseAllProjects()" class="btn-expand-collapse">－</button>
+    </div>
+  </div>`;
+
+  domains.forEach(dom => {
+    const domProjects = projects.filter(p=>p.domain===dom.id&&!p.done);
+    if(!domProjects.length) return;
+
+    html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden" id="proj-dom-${dom.id}">
+      <div onclick="toggleProjDomain('${dom.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer">
+        <div style="width:10px;height:10px;border-radius:50%;background:${dom.color};flex-shrink:0"></div>
+        <div style="font-size:14px;font-weight:700;flex:1">${dom.icon} ${dom.name}</div>
+        <div style="font-size:11px;background:${dom.color}20;color:${dom.color};border-radius:8px;padding:2px 8px;font-weight:700">${domProjects.length}</div>
+        <div id="proj-chevron-${dom.id}" style="color:var(--muted);font-size:14px;transition:transform .2s">▾</div>
+      </div>
+      <div id="proj-list-${dom.id}" style="display:none">`;
+
+    domProjects.forEach(p=>{
+      const pTasks = tasks.filter(t=>t.projectId===p.id);
+      const pDone = pTasks.filter(t=>t.done).length;
+      const pct = pTasks.length ? Math.round(pDone/pTasks.length*100) : 0;
+      const pUrgent = pTasks.filter(t=>!t.done&&t.priority==='urgent').length;
+      const pTasksOpen = pTasks.filter(t=>!t.done);
+
+      html += `<div style="border-top:1px solid var(--border)">
+        <div onclick="toggleProjDetail('${p.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer">
+          <div style="font-size:18px">🎯</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">${p.name}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+              <div style="flex:1;background:var(--s3);border-radius:4px;height:5px">
+                <div style="background:${dom.color};height:100%;width:${pct}%;border-radius:4px"></div>
+              </div>
+              <div style="font-size:10px;color:${dom.color};font-weight:700">${pct}%</div>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">${pDone}/${pTasks.length} משימות${p.dueDate?` · ⏳ ${formatDueDate(p.dueDate)}`:''}</div>
+          </div>
+          ${pUrgent?`<span style="font-size:10px;background:rgba(240,71,71,.15);color:var(--red);border-radius:6px;padding:2px 6px">🔴 ${pUrgent}</span>`:''}
+          <div id="proj-detail-chevron-${p.id}" style="color:var(--muted);font-size:12px;transition:transform .2s">▾</div>
+        </div>
+        <div id="proj-detail-${p.id}" style="display:none;padding:0 14px 10px 42px">`;
+
+      if(pTasksOpen.length) {
+        pTasksOpen.forEach(t=>{
+          const ptag = t.priority==='urgent'?'🔴':t.priority==='yellow'?'⭐':t.priority==='important'?'🟠':'🟢';
+          html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)" onclick="openEditTask(${t.id})">
+            <div class="task-cb" onclick="event.stopPropagation();toggleTask(${t.id});renderProjects()" style="width:18px;height:18px;font-size:10px;flex-shrink:0"></div>
+            <div style="flex:1;font-size:12px">${t.name}</div>
+            <div style="font-size:12px">${ptag}</div>
+          </div>`;
+        });
+      } else {
+        html += `<div style="font-size:11px;color:var(--muted);padding:6px 0">אין משימות פתוחות 🎉</div>`;
+      }
+      html += `<button onclick="openAddTaskToProject('${p.id}')" style="width:100%;margin-top:8px;padding:8px;background:none;border:1px dashed var(--border2);border-radius:8px;color:${dom.color};font-family:inherit;font-size:12px;cursor:pointer">＋ הוסף משימה</button>
+        </div></div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  if(!projects.filter(p=>!p.done).length) html += `<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:32px">🎯</div><div>אין פרויקטים פעילים</div></div>`;
+  html += `<div style="height:30px"></div>`;
+  el.innerHTML = html;
+}
+
+function toggleRoutineSlot(from) {
+  const body = document.getElementById('routine-slot-body-'+from);
+  const chevron = document.getElementById('routine-slot-chevron-'+from);
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function expandAllRoutines() {
+  document.querySelectorAll('[id^="routine-slot-body-"]').forEach(el=>el.style.display='block');
+  document.querySelectorAll('[id^="routine-slot-chevron-"]').forEach(el=>el.style.transform='rotate(180deg)');
+}
+
+function collapseAllRoutines() {
+  document.querySelectorAll('[id^="routine-slot-body-"]').forEach(el=>el.style.display='none');
+  document.querySelectorAll('[id^="routine-slot-chevron-"]').forEach(el=>el.style.transform='rotate(0deg)');
+}
+
+function expandAllProjects() {
+  document.querySelectorAll('[id^="proj-list-"]').forEach(el=>el.style.display='block');
+  document.querySelectorAll('[id^="proj-chevron-"]').forEach(el=>el.style.transform='rotate(180deg)');
+}
+
+function collapseAllProjects() {
+  document.querySelectorAll('[id^="proj-list-"]').forEach(el=>el.style.display='none');
+  document.querySelectorAll('[id^="proj-chevron-"]').forEach(el=>el.style.transform='rotate(0deg)');
+  document.querySelectorAll('[id^="proj-detail-"]').forEach(el=>{ if(!el.id.includes('chevron')) el.style.display='none'; });
+}
+
+function toggleProjDomain(domId) {
+  const list = document.getElementById('proj-list-'+domId);
+  const chevron = document.getElementById('proj-chevron-'+domId);
+  const isOpen = list.style.display !== 'none';
+  list.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function toggleProjDetail(pid) {
+  const detail = document.getElementById('proj-detail-'+pid);
+  const chevron = document.getElementById('proj-detail-chevron-'+pid);
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function renderDashInOverlay() {
+  const el = document.getElementById('dashOverlayContent');
+  if(!el) return;
+  const now = new Date();
+  const totalTasks = tasks.filter(t=>t.priority!=='routine').length;
+  const doneTasks = tasks.filter(t=>t.done&&t.priority!=='routine').length;
+  const openTasks = tasks.filter(t=>!t.done&&t.priority!=='routine').length;
+  const urgentTasks = tasks.filter(t=>!t.done&&t.priority==='urgent').length;
+  const donePercent = totalTasks ? Math.round(doneTasks/totalTasks*100) : 0;
+  const routines = tasks.filter(t=>t.priority==='routine');
+  const routinesDoneToday = routines.filter(t=>t.sleepUntil&&new Date(t.sleepUntil)>now).length;
+  const routinesTotal = routines.filter(t=>{
+    const r=t.routine; if(!r) return false;
+    const dow=now.getDay();
+    const activeDays=r.days&&r.days.length>0?r.days:[0,1,2,3,4,5];
+    return activeDays.includes(dow);
+  }).length;
+  const routinePercent = routinesTotal ? Math.round(routinesDoneToday/routinesTotal*100) : 0;
+  function bar(pct,color){return `<div style="background:var(--s3);border-radius:6px;height:8px;overflow:hidden;margin-top:6px"><div style="background:${color};height:100%;width:${pct}%;border-radius:6px"></div></div>`;}
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:800">📊 דשבורד</div>
+      <button onclick="document.getElementById('dashOverlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div class="stats" style="margin-bottom:12px">
+      <div class="stat-box"><div class="stat-n" style="color:#5b8dee">${openTasks}</div><div class="stat-l">פתוחות</div></div>
+      <div class="stat-box"><div class="stat-n" style="color:#3ecf8e">${doneTasks}</div><div class="stat-l">בוצעו</div></div>
+      <div class="stat-box"><div class="stat-n" style="color:var(--red)">${urgentTasks}</div><div class="stat-l">דחוף</div></div>
+      <div class="stat-box"><div class="stat-n" style="color:#c084f5">${projects.filter(p=>!p.done).length}</div><div class="stat-l">פרויקטים</div></div>
+    </div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between"><div style="font-size:12px;font-weight:700">✅ ביצוע משימות</div><div style="font-size:16px;font-weight:800;color:#3ecf8e">${donePercent}%</div></div>
+      <div style="font-size:11px;color:var(--muted)">${doneTasks}/${totalTasks} משימות</div>${bar(donePercent,'#3ecf8e')}
+    </div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between"><div style="font-size:12px;font-weight:700">🔁 שגרות היום</div><div style="font-size:16px;font-weight:800;color:#5b8dee">${routinePercent}%</div></div>
+      <div style="font-size:11px;color:var(--muted)">${routinesDoneToday}/${routinesTotal} שגרות</div>${bar(routinePercent,'#5b8dee')}
+    </div>`;
+}
+
 function toggleEdit() {
   editMode = !editMode;
   document.body.classList.toggle('edit-mode', editMode);
   renderDash();
+}
+
+function toggleTaskInDash(id) {
+  const t = tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.done = true;
+  save();
+  showToast(`✅ "${t.name.slice(0,20)}${t.name.length>20?'…':''}" הועבר לארכיון`, id);
+  updateArchiveCount();
+  // מצא והסר רק את שורת המשימה
+  const row = document.querySelector(`[data-dash-task="${id}"]`);
+  if(row) row.remove();
+  // עדכן ספירת המשימות בתת-הקטגוריה
+  const countEl = document.querySelector(`[data-dash-count-task="${id}"]`);
+  if(countEl) {
+    const cur = parseInt(countEl.textContent||'0');
+    if(cur > 0) countEl.textContent = cur - 1;
+  }
 }
 
 // ── TASK TOGGLE ──
@@ -771,23 +1558,78 @@ function toggleTask(id) {
   const t = tasks.find(t=>t.id===id);
   if(!t) return;
   const wasDone = t.done;
-  t.done = !t.done;
-  save();
-  // re-render current panel
+
+  if(t.priority === 'routine' && !wasDone) {
+    // שגרה — לא לארכיון, להרדים עד הפעם הבאה
+    t.done = false;
+    t.sleepUntil = calcNextRoutine(t);
+    save();
+    showToast(`🔁 "${t.name.slice(0,20)}" — נרדם עד ${formatNextRoutine(t.sleepUntil)}`, null);
+  } else {
+    t.done = !t.done;
+    save();
+    if(!wasDone) {
+      showToast(`✅ "${t.name.slice(0,20)}${t.name.length>20?'…':''}" הועבר לארכיון`, id);
+      updateArchiveCount();
+    } else {
+      updateArchiveCount();
+    }
+  }
+
   const cur = document.querySelector('.panel.on');
   if(cur?.id==='panel-tasks') renderTasks();
   else if(cur?.id==='panel-dash') renderDash();
   else if(cur?.id==='panel-now') renderNow();
   else if(cur?.id==='panel-today') renderToday();
-  // show toast only when marking done
-  if(!wasDone) { showToast(`✅ "${t.name.slice(0,20)}${t.name.length>20?'…':''}" הועבר לארכיון`, id); updateArchiveCount(); }
-  else updateArchiveCount();
+}
+
+function calcNextRoutine(t) {
+  if(!t.routine) return null;
+  const now = new Date();
+  const freq = t.routine.freq;
+  const next = new Date(now);
+  if(freq==='daily') next.setDate(next.getDate()+1);
+  else if(freq==='weekly') next.setDate(next.getDate()+7);
+  else if(freq==='biweekly') next.setDate(next.getDate()+14);
+  else if(freq==='monthly') next.setMonth(next.getMonth()+1);
+  else if(freq==='biannual') {
+    // חידוש ל-6 חודשים מהתאריך הנוכחי
+    const base = t.routine.nextDate ? new Date(t.routine.nextDate) : now;
+    base.setMonth(base.getMonth()+6);
+    // עדכן את nextDate בשגרה עצמה
+    t.routine.nextDate = base.toISOString().split('T')[0];
+    return base.toISOString();
+  }
+  else if(freq==='yearly') {
+    const base = t.routine.nextDate ? new Date(t.routine.nextDate) : now;
+    base.setFullYear(base.getFullYear()+1);
+    t.routine.nextDate = base.toISOString().split('T')[0];
+    return base.toISOString();
+  }
+  if(t.routine.time) {
+    const [h,m] = t.routine.time.split(':').map(Number);
+    next.setHours(h,m,0,0);
+  }
+  return next.toISOString();
+}
+
+function formatNextRoutine(iso) {
+  if(!iso) return 'בפעם הבאה';
+  const d = new Date(iso);
+  const days = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+  const time = d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  return `יום ${days[d.getDay()]} ${time}`;
 }
 
 // ── DELETE TASK ──
 function deleteTask(id) {
   tasks = tasks.filter(t=>t.id!==id);
   save(); renderTasks();
+}
+
+function openAddTaskWithPriority(priority) {
+  openAddTask('','');
+  document.getElementById('prioritySelect').value = priority;
 }
 
 function toggleGroupCollapse(key) {
@@ -813,7 +1655,15 @@ function renderTasks() {
   const el = document.getElementById('panel-tasks');
 
   // Domain filter bar + expand/collapse
-  let filterHtml = `<div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:6px 0 10px;flex:1">`;
+  let filterHtml = `
+  <div class="panel-header">
+    <div class="panel-header-title">✅ משימות</div>
+    <div class="panel-header-btns">
+      <button onclick="tasksCollapsed=false;collapsedGroups.clear();renderTasks()" class="btn-expand-collapse">＋</button>
+      <button onclick="tasksCollapsed=true;collapsedGroups=new Set(['⭐ ממנהל ישיר','🔴 דחוף','🟠 חשוב','🎯 פרויקטים','🟢 לא דחוף','📋 כללי']);renderTasks()" class="btn-expand-collapse">－</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:4px 0 10px">`;
   domains.forEach(d => {
     const active = !hiddenDomains.has(d.id);
     filterHtml += `<button onclick="toggleDomainFilter('${d.id}')" style="
@@ -827,21 +1677,18 @@ function renderTasks() {
     " title="${d.name}">${d.icon}</button>`;
   });
   filterHtml += `</div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div>
-      <div style="font-size:11px;color:var(--muted)">סה"כ ${tasks.filter(t=>!t.done&&t.priority!=='routine'&&!hiddenDomains.has(t.domain)).length} משימות</div>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button onclick="tasksCollapsed=false;collapsedGroups.clear();renderTasks()" title="הרחב הכל" style="width:26px;height:26px;border-radius:6px;background:var(--s2);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center">＋</button>
-        <button onclick="tasksCollapsed=true;collapsedGroups=new Set(['⭐ ממנהל ישיר','🔴 דחוף','🟠 חשוב','🎯 פרויקטים','🟢 לא דחוף','📋 כללי']);renderTasks()" title="צמצם הכל" style="width:26px;height:26px;border-radius:6px;background:var(--s2);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center">－</button>
-      </div>
-    </div>
-  </div>`;
+  <div style="font-size:11px;color:var(--muted);margin-bottom:10px">סה"כ ${tasks.filter(t=>!t.done&&t.priority!=='routine'&&!hiddenDomains.has(t.domain)).length} משימות פתוחות</div>`;
 
   // exclude routines, apply domain filter
   const open = tasks.filter(t=>!t.done && t.priority!=='routine' && !hiddenDomains.has(t.domain));
 
   const PORDER = ['yellow','urgent','important','project','low',''];
-  const sorted = [...open].sort((a,b)=>PORDER.indexOf(a.priority)-PORDER.indexOf(b.priority));
+  const domainOrder = domains.map(d=>d.id);
+  const sorted = [...open].sort((a,b)=>{
+    const pDiff = PORDER.indexOf(a.priority) - PORDER.indexOf(b.priority);
+    if(pDiff !== 0) return pDiff;
+    return domainOrder.indexOf(a.domain) - domainOrder.indexOf(b.domain);
+  });
 
   const groups = [
     {label:'⭐ ממנהל ישיר', filter: t=>t.priority==='yellow'},
@@ -859,12 +1706,14 @@ function renderTasks() {
     const gKey = g.label;
     const isCollapsed = tasksCollapsed || collapsedGroups.has(gKey);
     const color = g.label.includes('ממנהל')?'#f0c030':g.label.includes('דחוף')?'#f04747':g.label.includes('חשוב')?'#f07030':g.label.includes('פרויקט')?'#5b8dee':g.label.includes('לא דחוף')?'#3ecf8e':'#6b7494';
+    const priorityVal = g.label.includes('ממנהל')?'yellow':g.label.includes('דחוף')?'urgent':g.label.includes('חשוב')?'important':g.label.includes('פרויקט')?'project':g.label.includes('לא דחוף')?'low':'';
     html += `<div style="background:var(--s2);border:1px solid var(--border);border-right:4px solid ${color};border-radius:12px;margin-bottom:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-      <div onclick="toggleGroupCollapse('${gKey}')" style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;user-select:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer" onclick="toggleGroupCollapse('${gKey}')">
         <div style="font-size:14px;font-weight:700;color:${color}">${g.label}</div>
         <div style="display:flex;align-items:center;gap:8px">
+          <button onclick="event.stopPropagation();openAddTaskWithPriority('${priorityVal}')" style="background:${color};border:none;color:white;font-size:12px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:8px">＋</button>
           <span style="font-size:12px;color:var(--muted);background:var(--s3);border-radius:10px;padding:2px 10px;font-weight:600">${gTasks.length}</span>
-          <span style="color:var(--muted);font-size:16px;transition:transform .2s;display:inline-block;transform:${isCollapsed?'rotate(-90deg)':'rotate(0deg)'}"">▾</span>
+          <span style="color:var(--muted);font-size:16px;transition:transform .2s;display:inline-block;transform:${isCollapsed?'rotate(0deg)':'rotate(180deg)'}"">▾</span>
         </div>
       </div>`;
     if(!isCollapsed) {
@@ -882,6 +1731,89 @@ function renderTasks() {
 
   el.innerHTML = html;
   updateArchiveCount();
+  initAllSwipes();
+}
+
+// ── SWIPE TO DONE / DELETE ──
+function initSwipe(wrapper) {
+  const inner = wrapper.querySelector('.swipe-inner');
+  if(!inner) return;
+  const tid = parseInt(wrapper.id.replace('sw-',''));
+  let startX = 0, curX = 0, dragging = false;
+  const THRESHOLD = 80;
+
+  inner.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    curX = 0;
+    dragging = true;
+    wrapper.classList.add('swiping');
+  }, {passive:true});
+
+  inner.addEventListener('touchmove', e => {
+    if(!dragging) return;
+    curX = e.touches[0].clientX - startX;
+    inner.style.transform = `translateX(${curX}px)`;
+  }, {passive:true});
+
+  inner.addEventListener('touchend', () => {
+    dragging = false;
+    wrapper.classList.remove('swiping');
+    if(curX > THRESHOLD) {
+      // swipe ימינה = בוצע
+      inner.style.transform = `translateX(110%)`;
+      setTimeout(()=>{ toggleTask(tid); }, 250);
+    } else if(curX < -THRESHOLD) {
+      // swipe שמאלה = מחק
+      inner.style.transform = `translateX(-110%)`;
+      setTimeout(()=>{
+        tasks = tasks.filter(t=>t.id!==tid);
+        save(); renderTasks();
+      }, 250);
+    } else {
+      inner.style.transform = '';
+    }
+    curX = 0;
+  });
+}
+
+function initAllSwipes() {
+  document.querySelectorAll('.swipe-wrapper').forEach(initSwipe);
+}
+let dragId = null;
+let dragOverId = null;
+
+function onDragStart(e, id) {
+  dragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(()=>document.querySelector(`[data-tid="${id}"]`)?.classList.add('dragging'), 0);
+}
+
+function onDragOver(e, id) {
+  e.preventDefault();
+  dragOverId = id;
+  document.querySelectorAll('.task-item').forEach(el=>el.classList.remove('drag-over'));
+  document.querySelector(`[data-tid="${id}"]`)?.classList.add('drag-over');
+}
+
+function onDrop(e, id) {
+  e.preventDefault();
+  if(!dragId || dragId===id) return;
+  // reorder tasks array
+  const fromIdx = tasks.findIndex(t=>t.id===dragId);
+  const toIdx = tasks.findIndex(t=>t.id===id);
+  if(fromIdx<0||toIdx<0) return;
+  const [moved] = tasks.splice(fromIdx,1);
+  tasks.splice(toIdx,0,moved);
+  save();
+  dragId=null; dragOverId=null;
+  renderTasks();
+}
+
+function onDragEnd() {
+  dragId=null;
+  document.querySelectorAll('.task-item').forEach(el=>{
+    el.classList.remove('dragging','drag-over');
+  });
 }
 
 function renderTaskItemFlat(t, dom) {
@@ -892,19 +1824,42 @@ function renderTaskItemFlat(t, dom) {
     t.priority==='project'?'<span class="tag tag-project">🎯 פרויקט</span>':
     t.priority==='yellow'?'<span class="tag tag-yellow">⭐ ממנהל ישיר</span>':'';
 
-  const dueDateTag = t.dueDate ? `<span class="tag" style="background:rgba(240,167,50,.15);color:var(--orange)">⏳ ${formatDueDate(t.dueDate)}</span>` : '';
+  const dueDateTag = t.dueDate ? (()=>{
+    const isOverdue = new Date(t.dueDate) < new Date();
+    return `<span class="tag" style="background:${isOverdue?'rgba(240,71,71,.15)':'rgba(240,167,50,.15)'};color:${isOverdue?'var(--red)':'var(--orange)'}">⏳ ${formatDueDate(t.dueDate)}</span>`;
+  })() : '';
 
-  return `<div class="task-item ${t.done?'done-item':''}" onclick="openEditTask(${t.id})" style="border-right:3px solid ${color};margin-bottom:6px">
+  const locTag = t.location==='home'?`<span class="tag" style="background:#e8507a18;color:#e8507a">🏠 בבית</span>`:
+                 t.location==='out'?`<span class="tag" style="background:#e8507a18;color:#e8507a">🚗 בחוץ</span>`:'';
+
+  const notesPreview = t.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">📝 ${t.notes}</div>` : '';
+
+  const peopleTag = t.people?.length ? `<span class="tag" style="background:rgba(91,141,238,.12);color:var(--c1)">👤 ${t.people.map(id=>PEOPLE.find(p=>p.id===id)?.name||id).join(', ')}</span>` : '';
+
+  return `<div class="swipe-wrapper" id="sw-${t.id}">
+    <div class="swipe-bg-done">✅</div>
+    <div class="swipe-bg-del">🗑️</div>
+    <div class="swipe-inner">
+    <div class="task-item ${t.done?'done-item':''}" data-tid="${t.id}"
+    draggable="true"
+    ondragstart="onDragStart(event,${t.id})"
+    ondragover="onDragOver(event,${t.id})"
+    ondrop="onDrop(event,${t.id})"
+    ondragend="onDragEnd()"
+    onclick="openEditTask(${t.id})"
+    style="border-right:3px solid ${color};margin-bottom:0">
+    <div class="drag-handle" onclick="event.stopPropagation()">⋮⋮</div>
     <div class="task-cb ${t.done?'done':''}" onclick="event.stopPropagation();toggleTask(${t.id})">${t.done?'✓':''}</div>
     <div class="task-body">
       <div class="task-name ${t.done?'done':''}">${t.name}</div>
+      ${notesPreview}
       <div class="task-tags">
         <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;background:${color}18;color:${color}">${dom?.icon} ${dom?.name}</span>
-        ${priorityTag}${dueDateTag}
+        ${priorityTag}${dueDateTag}${locTag}${peopleTag}
       </div>
     </div>
     <div style="color:var(--muted2);font-size:12px;padding-right:4px;flex-shrink:0">›</div>
-  </div>`;
+  </div></div></div>`;
 }
 
 function renderTaskItem(t, color) {
@@ -947,6 +1902,7 @@ function openEditTask(id) {
   const sel = document.getElementById('domainSelect');
   sel.innerHTML = domains.map(d=>`<option value="${d.id}" ${d.id===t.domain?'selected':''}>${d.icon} ${d.name}</option>`).join('');
   updateSubcatSelect(t.subcat);
+  onSubcatChange();
   document.getElementById('prioritySelect').value = t.priority || '';
   document.getElementById('dueDateInput').value = t.dueDate || '';
   if(t.dueDate) {
@@ -956,6 +1912,34 @@ function openEditTask(id) {
     document.getElementById('dueDateFields').style.display='none';
     document.getElementById('dueDateBtn').style.display='flex';
   }
+  // routine fields
+  if(t.routine) {
+    document.getElementById('routineFreq').value = t.routine.freq || 'daily';
+    document.getElementById('routineTime').value = t.routine.time || '';
+    document.getElementById('routineDuration').value = t.routine.duration || '';
+    onFreqChange(); // הצג את השדות הנכונים
+    if(t.routine.days) {
+      document.querySelectorAll('.day-cb').forEach(cb=>{
+        cb.checked = t.routine.days.includes(parseInt(cb.value));
+      });
+    }
+    if(t.routine.dayOfMonth) {
+      document.getElementById('dayOfMonth').value = t.routine.dayOfMonth;
+    }
+    if(t.routine.nextDate) {
+      document.getElementById('routineNextDate').value = t.routine.nextDate;
+    }
+  } else {
+    document.getElementById('daysField').style.display='none';
+    document.getElementById('dayOfMonthField').style.display='none';
+    document.getElementById('nextDateField').style.display='none';
+  }
+  document.getElementById('taskNotesInput').value = t.notes || '';
+  selectedPeople = new Set(t.people || []);
+  renderPeopleField();
+  // project assignment
+  updateProjectSelect(t.domain);
+  document.getElementById('projectSelect').value = t.projectId || '';
   document.getElementById('modalOverlay').classList.add('open');
 }
 
@@ -970,26 +1954,31 @@ function toggleDomainSection(id) {
 
 // ── RENDER DASH ──
 function renderDash() {
+  // שמור אילו תחומים ותתי-קטגוריות פתוחים לפני הרינדור
+  const openDomains = new Set();
+  const openSubcats = new Set();
+  document.querySelectorAll('.domain-card.open').forEach(el => openDomains.add(el.id.replace('dc-','')));
+  document.querySelectorAll('[id^="st-"]').forEach(el => { if(el.style.display!=='none') openSubcats.add(el.id); });
+  // בפתיחה ראשונה — הכל סגור
+  const firstRender = !document.querySelector('.domain-card');
   const el = document.getElementById('panel-dash');
-  const open = tasks.filter(t=>!t.done).length;
+  const open = tasks.filter(t=>!t.done && t.priority!=='routine').length;
   const urgent = tasks.filter(t=>!t.done&&t.priority==='urgent').length;
   const done = tasks.filter(t=>t.done).length;
 
   let html = `<div class="stats">
     <div class="stat-box" onclick="showFiltered('all')" style="cursor:pointer"><div class="stat-n" style="color:#5b8dee">${open}</div><div class="stat-l">פתוחות</div></div>
+    <div class="stat-box" onclick="showFiltered('manager')" style="cursor:pointer"><div class="stat-n" style="color:#f0c030">${tasks.filter(t=>!t.done&&t.priority==='yellow').length}</div><div class="stat-l">ממנהל</div></div>
     <div class="stat-box" onclick="showFiltered('urgent')" style="cursor:pointer"><div class="stat-n" style="color:var(--red)">${urgent}</div><div class="stat-l">דחוף</div></div>
     <div class="stat-box" onclick="showFiltered('important')" style="cursor:pointer"><div class="stat-n" style="color:var(--orange)">${tasks.filter(t=>!t.done&&t.priority==='important').length}</div><div class="stat-l">חשוב</div></div>
-    <div class="stat-box" onclick="showFiltered('done')" style="cursor:pointer"><div class="stat-n" style="color:var(--green)">${done}</div><div class="stat-l">בוצע</div></div>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px">
-    <div style="display:flex;align-items:center;gap:8px">
-      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase">תחומי חיים</div>
-      <button onclick="expandAllDomains()" title="פרוס הכל" style="width:22px;height:22px;border-radius:6px;background:var(--s3);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1">＋</button>
-      <button onclick="collapseAllDomains()" title="סגור הכל" style="width:22px;height:22px;border-radius:6px;background:var(--s3);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1">－</button>
+  <div class="panel-header" style="margin:14px 0 10px">
+    <div class="panel-header-title">🗂️ תחומי חיים</div>
+    <div class="panel-header-btns">
+      <button onclick="toggleEdit()" class="edit-btn ${editMode?'active':''}" id="editBtn" style="font-size:11px;padding:4px 8px">${editMode?'✅ סיום':'✏️ ערוך'}</button>
+      <button onclick="expandAllDomains()" class="btn-expand-collapse">＋</button>
+      <button onclick="collapseAllDomains()" class="btn-expand-collapse">－</button>
     </div>
-    <button class="edit-btn ${editMode?'active':''}" id="editBtn" onclick="toggleEdit()" style="font-size:11px">
-      ${editMode?'✅ סיום עריכה':'✏️ ערוך תחומים'}
-    </button>
   </div>
   <div class="domains">`;
 
@@ -1012,7 +2001,7 @@ function renderDash() {
         <div class="domain-edit-btns">
           <button class="del-btn" onclick="deleteDomain(${di});event.stopPropagation()">🗑️</button>
         </div>
-        <button onclick="openAddTask('${dom.id}','');event.stopPropagation()" style="background:none;border:none;color:${dom.color};font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;opacity:0.8" title="הוסף משימה ל${dom.name}">＋</button>
+        <button onclick="event.stopPropagation();event.preventDefault();openAddTask('${dom.id}','')" style="background:${dom.color};border:none;color:white;font-size:13px;font-weight:700;cursor:pointer;padding:2px 8px;border-radius:8px;flex-shrink:0" title="הוסף משימה ל${dom.name}">＋</button>
         <button onclick="openAddProject('${dom.id}','');event.stopPropagation()" style="background:none;border:none;color:${dom.color};font-size:11px;font-weight:700;cursor:pointer;padding:2px 6px;border:1px solid ${dom.color}44;border-radius:8px;flex-shrink:0;opacity:0.8" title="פרויקט חדש">🎯</button>
         <div class="domain-chevron">▼</div>
       </div>
@@ -1020,8 +2009,13 @@ function renderDash() {
 
     // subcats with tasks inside
     dom.subcats.forEach((sub,si) => {
-      const subTasks = domTasks.filter(t=>t.subcat===sub);
-      const sc = subTasks.length;
+      const PRIO = ['yellow','urgent','important','low',''];
+      const subTasks = domTasks
+        .filter(t=>t.subcat===sub && t.priority!=='routine')
+        .sort((a,b)=>PRIO.indexOf(a.priority)-PRIO.indexOf(b.priority));
+      const subProjects = projects.filter(p=>p.domain===dom.id&&p.subcat===sub&&!p.done);
+      const isProjectSubcat = sub.includes('פרויקט');
+      const sc = subTasks.length + (isProjectSubcat ? subProjects.length : 0);
       html += `<div>`;
       // subcat header
       html += `<div class="subcat" onclick="toggleSubcatTasks('${dom.id}-${si}');event.stopPropagation()" style="cursor:pointer">`;
@@ -1031,40 +2025,63 @@ function renderDash() {
         html += `<div class="subcat-name">${sub}</div>`;
       }
       html += `<div class="subcat-meta">
-        <button onclick="openAddTask('${dom.id}','${sub}');event.stopPropagation()" style="background:none;border:none;color:${dom.color};font-size:15px;cursor:pointer;padding:0 4px;opacity:0.7;line-height:1" title="הוסף משימה ל${sub}">＋</button>
+        <button onclick="event.stopPropagation();event.preventDefault();openAddTask('${dom.id}','${sub}')" style="background:${dom.color};border:none;color:white;font-size:13px;font-weight:700;cursor:pointer;padding:2px 7px;border-radius:8px;line-height:1.4" title="הוסף משימה ל${sub}">＋</button>
         <span class="subcat-count">${sc}</span><div class="subcat-dot" style="background:${dom.color}"></div>`;
       if(editMode) html += `<button class="del-btn" onclick="deleteSubcat(${di},${si});event.stopPropagation()">🗑️</button>`;
       html += `</div></div>`;
 
-      // projects inside subcat
-      const subProjects = projects.filter(p=>p.domain===dom.id&&p.subcat===sub&&!p.done);
-      subProjects.forEach(p => {
-        const pTaskCount = tasks.filter(t=>t.projectId===p.id&&!t.done).length;
-        const pUrgent = tasks.filter(t=>t.projectId===p.id&&!t.done&&t.priority==='urgent').length;
-        html += `<div onclick="openProjectDetail('${p.id}');event.stopPropagation()"
-          style="display:flex;align-items:center;gap:8px;padding:8px 14px 8px 42px;background:${dom.color}0a;border-bottom:1px solid var(--border);cursor:pointer">
-          <div style="font-size:14px">🎯</div>
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:700;color:${dom.color}">${p.name}</div>
-            <div style="font-size:10px;color:var(--muted)">${pTaskCount} משימות${p.dueDate?` · ⏳ ${formatDueDate(p.dueDate)}`:''}</div>
-          </div>
-          ${pUrgent?`<span class="tag tag-red" style="font-size:10px">🔴 ${pUrgent}</span>`:''}
-          <div style="color:var(--muted2);font-size:12px">›</div>
-        </div>`;
-      });
+      // tasks/projects inside subcat (hidden by default)
+      if(sc > 0 || subProjects.length > 0) {
+        html += `<div id="st-${dom.id}-${si}" style="display:none;padding:${isProjectSubcat?'0':'6px 14px 4px 42px'};background:var(--s1)">`;
 
-      // tasks inside subcat (hidden by default, toggle on click)
-      if(sc > 0) {
-        html += `<div id="st-${dom.id}-${si}" style="display:none;padding:6px 14px 4px 42px;background:var(--s1)">`;
-        subTasks.forEach(t => {
-          const ptag = t.priority==='urgent'?'🔴':t.priority==='yellow'?'🟡':t.priority==='important'?'🟠':t.priority==='project'?'🎯':t.priority==='routine'?'🔁':t.priority==='low'?'🟢':'';
-          html += `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)" onclick="openEditTask(${t.id});event.stopPropagation()">
-            <div class="task-cb ${t.done?'done':''}" onclick="event.stopPropagation();toggleTask(${t.id});renderDash()" style="flex-shrink:0;width:18px;height:18px;font-size:10px">${t.done?'✓':''}</div>
-            <div style="flex:1;font-size:12px;font-weight:500">${t.name}</div>
-            ${ptag?`<div style="font-size:13px">${ptag}</div>`:''}
-          </div>`;
-        });
+        const isRoutineSubcat = sub === 'שגרות' || sub.startsWith('שגרות');
+        if(isRoutineSubcat && subTasks.length > 0) {
+          // קיבוץ לפי תדירות
+          const freqLabels = {daily:'📅 יומי', weekly:'📅 שבועי', biweekly:'📅 דו-שבועי', monthly:'📅 חודשי', biannual:'📅 חצי שנתי', yearly:'📅 שנתי'};
+          const freqOrder = ['daily','weekly','biweekly','monthly','biannual','yearly'];
+          freqOrder.forEach(freq => {
+            const fTasks = subTasks.filter(t=>t.routine?.freq===freq || (!t.routine && freq==='daily'));
+            if(!fTasks.length) return;
+            html += `<div style="font-size:10px;font-weight:700;color:${dom.color};text-transform:uppercase;letter-spacing:.06em;padding:8px 0 4px">${freqLabels[freq]}</div>`;
+            fTasks.forEach(t => {
+              const timeStr = t.routine?.time ? ` · ${t.routine.time}` : '';
+              html += `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)" onclick="openEditTask(${t.id});event.stopPropagation()">
+                <div class="task-cb" onclick="event.stopPropagation();toggleTask(${t.id});renderDash()" style="flex-shrink:0;width:18px;height:18px;font-size:10px">${t.done?'✓':''}</div>
+                <div style="flex:1;font-size:12px;font-weight:500">${t.name}<span style="color:var(--muted);font-size:10px">${timeStr}</span></div>
+                <div style="font-size:11px">🔁</div>
+              </div>`;
+            });
+          });
+        } else {
+          subTasks.forEach(t => {
+            const ptag = t.priority==='urgent'?'🔴':t.priority==='yellow'?'⭐':t.priority==='important'?'🟠':t.priority==='low'?'🟢':'';
+              html += `<div data-dash-task="${t.id}" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)" onclick="openEditTask(${t.id});event.stopPropagation()">
+              <div class="task-cb ${t.done?'done':''}" onclick="event.stopPropagation();toggleTaskInDash(${t.id})" style="flex-shrink:0;width:18px;height:18px;font-size:10px">${t.done?'✓':''}</div>
+              <div style="flex:1;font-size:12px;font-weight:500">${t.name}</div>
+              ${ptag?`<div style="font-size:13px">${ptag}</div>`:''}
+            </div>`;
+          });
+        }
         if(editMode) html += `<button class="add-task-btn" onclick="openAddTask('${dom.id}','${sub}');event.stopPropagation()" style="margin:6px 0">＋ הוסף משימה</button>`;
+
+        // פרויקטים בתוך הגוש
+        if(subProjects.length > 0) {
+          subProjects.forEach(p => {
+            const pTaskCount = tasks.filter(t=>t.projectId===p.id&&!t.done).length;
+            const pUrgent = tasks.filter(t=>t.projectId===p.id&&!t.done&&t.priority==='urgent').length;
+            html += `<div onclick="openProjectDetail('${p.id}');event.stopPropagation()"
+              style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:${dom.color}08;border-bottom:1px solid var(--border);cursor:pointer">
+              <div style="font-size:16px">🎯</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:700;color:${dom.color}">${p.name}</div>
+                <div style="font-size:10px;color:var(--muted)">${pTaskCount} משימות${p.dueDate?` · ⏳ ${formatDueDate(p.dueDate)}`:''}</div>
+              </div>
+              ${pUrgent?`<span class="tag tag-red" style="font-size:10px">🔴 ${pUrgent}</span>`:''}
+              <div style="color:var(--muted2);font-size:12px">›</div>
+            </div>`;
+          });
+        }
+
         html += `</div>`;
       }
       html += `</div>`;
@@ -1077,6 +2094,12 @@ function renderDash() {
   if(editMode) html += `<button onclick="addDomain()" style="width:100%;padding:12px;margin-top:10px;background:none;border:1px dashed var(--border2);border-radius:12px;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">＋ הוסף תחום חדש</button>`;
   html += `</div>`;
   el.innerHTML = html;
+
+  // שחזר מצב פתוח/סגור (אם לא פתיחה ראשונה)
+  if(!firstRender) {
+    openDomains.forEach(id => document.getElementById('dc-'+id)?.classList.add('open'));
+    openSubcats.forEach(id => { const el = document.getElementById(id); if(el) el.style.display='block'; });
+  }
 }
 
 function toggleSubcatTasks(key) {
@@ -1145,33 +2168,35 @@ function addDomain() {
 function openAddTask(domainId='', subcatName='') {
   const sel = document.getElementById('domainSelect');
   sel.innerHTML = domains.map(d=>`<option value="${d.id}" ${d.id===domainId?'selected':''}>${d.icon} ${d.name}</option>`).join('');
-  updateSubcatSelect(subcatName);
+  // ברירת מחדל: "לעשות" ולא "שגרות"
+  const defaultSubcat = subcatName || 'לעשות';
+  updateSubcatSelect(defaultSubcat);
   document.getElementById('taskNameInput').value='';
   document.getElementById('prioritySelect').value='';
   document.getElementById('dueDateInput').value='';
   document.getElementById('dueDateFields').style.display='none';
   document.getElementById('dueDateBtn').style.display='flex';
+  document.getElementById('routineFields').style.display='none';
+  document.getElementById('priorityField').style.display='block';
+  document.getElementById('dueDateField').style.display='block';
+  document.getElementById('routineFreq').value='daily';
+  document.getElementById('routineTime').value='';
+  document.getElementById('routineDuration').value='';
+  document.querySelectorAll('.day-cb').forEach(cb=>cb.checked=false);
+  document.getElementById('daysField').style.display='none';
+  document.getElementById('dayOfMonthField').style.display='none';
+  document.getElementById('nextDateField').style.display='none';  selectedPeople = new Set();
+  renderPeopleField();
+  document.getElementById('taskNotesInput').value='';
   document.getElementById('saveTaskBtn').textContent='שמור משימה';
   document.getElementById('deleteTaskBtn').style.display='none';
   editingTask = null;
   document.getElementById('modalTitle').textContent='משימה חדשה';
+  updateProjectSelect(domainId || domains[0]?.id);
+  document.getElementById('projectSelect').value='';
+  onSubcatChange();
   document.getElementById('modalOverlay').classList.add('open');
-  document.getElementById('taskNameInput').focus();
-}
-
-function openEditTask(id) {
-  const t = tasks.find(t=>t.id===id);
-  if(!t) return;
-  editingTask = id;
-  document.getElementById('modalTitle').textContent='עריכת משימה';
-  document.getElementById('taskNameInput').value = t.name;
-  document.getElementById('saveTaskBtn').textContent='שמור שינויים';
-  document.getElementById('deleteTaskBtn').style.display='block';
-  const sel = document.getElementById('domainSelect');
-  sel.innerHTML = domains.map(d=>`<option value="${d.id}" ${d.id===t.domain?'selected':''}>${d.icon} ${d.name}</option>`).join('');
-  updateSubcatSelect(t.subcat);
-  document.getElementById('prioritySelect').value = t.priority || '';
-  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('taskNameInput').focus(), 100);
 }
 
 function deleteFromModal() {
@@ -1214,32 +2239,107 @@ function clearDueDate() {
   document.getElementById('dueDateBtn').style.display = 'flex';
 }
 
+let taskLocation = '';
+
+function setLocation(loc) {
+  taskLocation = loc;
+  document.getElementById('locHome').style.background = loc==='home' ? '#e8507a22' : 'var(--s2)';
+  document.getElementById('locHome').style.borderColor = loc==='home' ? '#e8507a' : 'var(--border)';
+  document.getElementById('locOut').style.background = loc==='out' ? '#e8507a22' : 'var(--s2)';
+  document.getElementById('locOut').style.borderColor = loc==='out' ? '#e8507a' : 'var(--border)';
+}
+
+function onSubcatChange() {
+  const subcat = document.getElementById('subcatSelect').value;
+  const domId = document.getElementById('domainSelect').value;
+  const isRoutine = subcat === 'שגרות' || subcat.startsWith('שגרות');
+  const isHomeTodo = domId === 'home' && subcat === 'לעשות';
+  document.getElementById('routineFields').style.display = isRoutine ? 'block' : 'none';
+  if(isRoutine) {
+    document.getElementById('daysField').style.display = 'none';
+    document.getElementById('dayOfMonthField').style.display = 'none';
+  }
+  document.getElementById('priorityField').style.display = isRoutine ? 'none' : 'block';
+  document.getElementById('dueDateField').style.display = isRoutine ? 'none' : 'block';
+  document.getElementById('locationField').style.display = isHomeTodo ? 'block' : 'none';
+  if(isRoutine) document.getElementById('prioritySelect').value = 'routine';
+  if(isHomeTodo) { taskLocation = ''; setLocation(''); }
+  const domId2 = document.getElementById('domainSelect').value;
+  updateProjectSelect(domId2);
+}
+
+function onFreqChange() {
+  const freq = document.getElementById('routineFreq').value;
+  document.getElementById('daysField').style.display = (freq==='weekly'||freq==='biweekly') ? 'block' : 'none';
+  document.getElementById('dayOfMonthField').style.display = freq==='monthly' ? 'block' : 'none';
+  document.getElementById('nextDateField').style.display = (freq==='biannual'||freq==='yearly') ? 'block' : 'none';
+}
+
 function updateSubcatSelect(preselect='') {
   const domId = document.getElementById('domainSelect').value;
   const dom = domains.find(d=>d.id===domId);
   const sel = document.getElementById('subcatSelect');
   sel.innerHTML = (dom?.subcats||[]).map(s=>`<option value="${s}" ${s===preselect?'selected':''}>${s}</option>`).join('');
+  renderPeopleField();
+}
+
+function updateProjectSelect(domId) {
+  const sel = document.getElementById('projectSelect');
+  const domProjects = projects.filter(p=>p.domain===domId);
+  sel.innerHTML = '<option value="">ללא פרויקט</option>' +
+    domProjects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') +
+    '<option value="__new__">＋ פתח פרויקט חדש</option>';
+  sel.onchange = function() {
+    if(sel.value === '__new__') {
+      sel.value = '';
+      const domainId = document.getElementById('domainSelect').value;
+      closeModal();
+      openAddProject(domainId, '');
+    }
+  };
 }
 
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('open');
+  // restore hidden fields
+  document.getElementById('domainSelect').closest('.modal-field').style.display='block';
+  document.getElementById('subcatSelect').closest('.modal-field').style.display='block';
+  document.getElementById('projectField').style.display='block';
+  delete document.getElementById('modalOverlay').dataset.projectDomain;
+  delete document.getElementById('modalOverlay').dataset.projectSubcat;
 }
 
 function saveTask() {
   const name = document.getElementById('taskNameInput').value.trim();
   if(!name) return;
-  const domainId = document.getElementById('domainSelect').value;
-  const subcat = document.getElementById('subcatSelect').value;
-  const priority = document.getElementById('prioritySelect').value;
-  const dueDate = document.getElementById('dueDateInput').value || '';
+  const pid = document.getElementById('projectSelect').value || document.getElementById('modalOverlay').dataset.projectId || '';
+  const domainId = document.getElementById('modalOverlay').dataset.projectDomain || document.getElementById('domainSelect').value;
+  const subcat = document.getElementById('modalOverlay').dataset.projectSubcat || document.getElementById('subcatSelect').value;
+  const isRoutine = subcat === 'שגרות' || subcat.startsWith('שגרות');
+  const priority = isRoutine ? 'routine' : document.getElementById('prioritySelect').value;
+  const dueDate = isRoutine ? '' : (document.getElementById('dueDateInput').value || '');
 
-  const pid = document.getElementById('modalOverlay').dataset.projectId || '';
+  // routine data
+  let routineData = null;
+  if(isRoutine) {
+    const freq = document.getElementById('routineFreq').value;
+    const time = document.getElementById('routineTime').value;
+    const duration = document.getElementById('routineDuration').value;
+    const days = [...document.querySelectorAll('.day-cb:checked')].map(cb=>parseInt(cb.value));
+    const dayOfMonth = freq==='monthly' ? parseInt(document.getElementById('dayOfMonth').value) : null;
+    const nextDate = (freq==='biannual'||freq==='yearly') ? document.getElementById('routineNextDate').value : null;
+    routineData = {freq, time, duration: parseInt(duration)||30, days, dayOfMonth, nextDate};
+  }
+
+  const notes = document.getElementById('taskNotesInput').value.trim();
+  const people = [...selectedPeople];
+
   if(editingTask) {
     const t = tasks.find(t=>t.id===editingTask);
-    if(t) { t.name=name; t.domain=domainId; t.subcat=subcat; t.priority=priority; t.dueDate=dueDate; }
+    if(t) { t.name=name; t.domain=domainId; t.subcat=subcat; t.priority=priority; t.dueDate=dueDate; t.projectId=pid; t.routine=routineData; t.location=taskLocation||t.location; t.notes=notes; t.people=people; }
     editingTask = null;
   } else {
-    tasks.push({id:nextId++, domain:domainId, subcat, name, done:false, priority, dueDate, projectId:pid});
+    tasks.push({id:nextId++, domain:domainId, subcat, name, done:false, priority, dueDate, projectId:pid, routine:routineData, location:taskLocation, notes, people});
   }
   delete document.getElementById('modalOverlay').dataset.projectId;
   save(); closeModal();
@@ -1355,47 +2455,48 @@ function renderToday(offset) {
   const dayLabel = todayOffset===0?'היום':todayOffset===1?'מחר':todayOffset===-1?'אתמול':`יום ${dayNames[dow]}`;
   const dateStr = `${base.getDate()} ${months[base.getMonth()]}`;
 
-  // Build schedule blocks for this day
-  function getBlocks() {
-    if(isSaturday) return [{time:'שבת',icon:'✡️',title:'שבת שלום',detail:'יום מנוחה',color:'#5b8dee'}];
-    if(isFriday) return [
-      {time:'05:00',icon:'🌅',title:'קימה',detail:'יום שישי',color:'#f0a040'},
-      {time:'05:30',icon:'🏃',title:'ריצה ארוכה',detail:'לפי תכנית הריצה',color:'#3ecf8e'},
-      {time:'08:00',icon:'✡️',title:'שחרית + לימוד',detail:'תפילה ולימוד בוקר',color:'#5b8dee'},
-      {time:'09:30',icon:'🛒',title:'סידורים וקניות',detail:'יום פנוי לסידורים',color:'#f06fa0'},
-      {time:'14:00',icon:'🍳',title:'הכנות שבת',detail:'בישולים וניקיונות',color:'#5b8dee'},
-    ];
-    const eveningBlocks = isThursday ? [
-      {time:'18:15',icon:'🕍',title:'ערבית',detail:'15 דקות',color:'#5b8dee'},
-      {time:'18:45',icon:'🍳',title:'בישולים לשבת',detail:'הכנות יום חמישי',color:'#5b8dee'},
-      {time:'21:45',icon:'😴',title:'שינה',detail:'',color:'#888'},
-    ] : [
-      {time:'18:15',icon:'🕍',title:'ערבית',detail:'15 דקות',color:'#5b8dee'},
-      {time:'18:45',icon:'🍳',title:'בישול + ארוחת ערב',detail:'ארוחה משפחתית ב-19:30',color:'#f06fa0'},
-      {time:'20:15',icon:'📖',title:'לימוד ערב',detail:'30 דקות',color:'#5b8dee'},
-      {time:'20:45',icon:'🏠',title:'ארגון הבית',detail:'30 דקות',color:'#f06fa0'},
-      {time:'21:15',icon:'🎯',title:'זמן פנוי',detail:'משימות דיגיטליות',color:'#c084f5'},
-      {time:'21:45',icon:'😴',title:'שינה',detail:'',color:'#888'},
-    ];
-    return [
-      {time:'04:00',icon:'🌅',title:'קימה + ברכות השחר',detail:'מודה אני, ברכות 10 דק׳',color:'#5b8dee'},
-      {time:'05:00',icon:'🏃',title:'אימון בוקר',detail:'חדר כושר / ריצה עד 06:30',color:'#3ecf8e'},
-      {time:'07:00',icon:'🕍',title:'שחרית + לימוד בוקר',detail:'שחרית 45 דק׳ + תהילים/חומש/תניא',color:'#5b8dee'},
-      {time:'08:00',icon:'💼',title:'עבודה',detail:'משימות ופגישות',color:'#4ec9f0'},
-      {time:'12:00',icon:'🥗',title:'ארוחת צהריים',detail:'לפי תפריט',color:'#3ecf8e'},
-      {time:'13:00',icon:'📖',title:'רמב"ם + מנחה',detail:'רמב״ם 15 דק׳ + מנחה 25 דק׳',color:'#5b8dee'},
-      {time:'17:00',icon:'🚗',title:'יציאה מהעבודה',detail:'נסיעה שעה',color:'#888'},
-      ...eveningBlocks
-    ];
-  }
-
   function timeToMin(str) {
     if(!str||str.includes('שבת')) return -1;
     const [h,m] = str.split(':').map(Number); return h*60+m;
   }
 
-  const blocks = getBlocks();
-  // merge custom events
+  // Build blocks from routines
+  function getRoutineBlocks() {
+    if(isSaturday) return [];
+    const routineTasks = tasks.filter(t => t.priority==='routine' && t.routine);
+    const blocks = [];
+    routineTasks.forEach(t => {
+      const r = t.routine;
+      const dom = domains.find(d=>d.id===t.domain);
+    const activeDays = r.days && r.days.length > 0 ? r.days : [0,1,2,3,4,5];
+    let show = false;
+    if(r.freq==='daily') show = dow !== 6;
+    else if(r.freq==='weekly'||r.freq==='biweekly') show = activeDays.includes(dow);
+    else if(r.freq==='monthly') show = r.dayOfMonth ? base.getDate()===r.dayOfMonth : false;
+    else if(r.freq==='biannual'||r.freq==='yearly') {
+      if(r.nextDate) {
+        const nd = new Date(r.nextDate);
+        show = nd.getDate()===base.getDate() && nd.getMonth()===base.getMonth();
+      }
+    }
+    const show2 = show;
+      if(show2 && r.time) {
+        blocks.push({
+          time: r.time,
+          icon: dom?.icon || '🔁',
+          title: t.name,
+          detail: `${dom?.name || ''}${r.duration ? ` · ${r.duration} דק׳` : ''}`,
+          color: dom?.color || '#888',
+          taskId: t.id,
+          done: !!t.sleepUntil && new Date(t.sleepUntil) > new Date()
+        });
+      }
+    });
+    // sort by time
+    return blocks.sort((a,b)=>timeToMin(a.time)-timeToMin(b.time));
+  }
+
+  const blocks = getRoutineBlocks();
   const key = String(todayOffset);
   const custom = customEvents[key] || [];
 
@@ -1453,48 +2554,35 @@ function renderToday(offset) {
     📅 + הוסף אירוע ליומן
   </button>`;
 
-  // filter blocks to 04:00-22:00 unless showFullDay
-  const START_MIN = 4 * 60;
-  const END_MIN = 22 * 60;
-  const hasOutside = blocks.some(b => { const m=timeToMin(b.time); return m>=0 && (m<START_MIN||m>=END_MIN); });
-  const visibleBlocks = showFullDay ? blocks : blocks.filter(b => {
-    const m = timeToMin(b.time);
-    return m < 0 || (m >= START_MIN && m < END_MIN);
-  });
-
-  // TIMELINE
-  html += `<div class="sec">⏰ לוח זמנים</div>`;
-  html += `<div style="display:flex;flex-direction:column">`;
-  visibleBlocks.forEach((b,i) => {
-    const isCurrent = blocks.indexOf(b)===currentIdx;
-    const isPast = isToday && blocks.indexOf(b)<currentIdx;
-    html += `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);opacity:${isPast?'0.4':'1'}">
-      <div style="width:44px;flex-shrink:0;font-size:11px;font-weight:700;color:${isCurrent?b.color:'var(--muted)'};padding-top:2px">${b.time}</div>
-      <div style="width:2px;flex-shrink:0;background:${isCurrent?b.color:'var(--border)'};border-radius:1px;position:relative">
-        <div style="position:absolute;top:4px;left:50%;transform:translateX(-50%);width:${isCurrent?'10px':'7px'};height:${isCurrent?'10px':'7px'};border-radius:50%;background:${isCurrent?b.color:'var(--border2)'};${isCurrent?'box-shadow:0 0 0 3px '+b.color+'33':''}"></div>
-      </div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:${isCurrent?'700':'500'};color:${isCurrent?b.color:'var(--text)'};margin-bottom:2px">${b.icon} ${b.title}</div>
-        <div style="font-size:11px;color:var(--muted)">${b.detail}</div>
-        ${isCurrent?`<div style="font-size:10px;font-weight:700;color:${b.color};margin-top:3px">◀ עכשיו</div>`:''}
-      </div>
+  // TIMELINE — from routines
+  if(blocks.length === 0) {
+    html += `<div style="text-align:center;padding:30px;color:var(--muted)">
+      <div style="font-size:32px;margin-bottom:8px">📋</div>
+      <div style="font-size:13px">אין שגרות מוגדרות ליום זה</div>
+      <div style="font-size:11px;margin-top:6px">הגדר שגרות בלשונית תחומים</div>
     </div>`;
-  });
-  html += `</div>`;
-
-  // expand button if there are events outside 04:00-22:00
-  if(hasOutside) {
-    html += `<button onclick="showFullDay=!showFullDay;renderToday()" style="width:100%;margin-top:10px;padding:9px;background:none;border:1px dashed var(--border2);border-radius:10px;color:var(--muted);font-family:inherit;font-size:12px;cursor:pointer">
-      ${showFullDay ? '⬆️ הצג 04:00–22:00 בלבד' : '⬇️ הצג את כל שעות היום'}
-    </button>`;
-  }
-
-  // THURSDAY shabbat prep reminder
-  if(isThursday) {
-    html += `<div style="margin-top:16px;background:rgba(91,141,238,.1);border:1px solid rgba(91,141,238,.3);border-radius:12px;padding:12px 14px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:6px">🕯️ הכנות לשבת הערב</div>
-      <div style="font-size:12px;color:var(--muted);line-height:2">☐ בישולים לשבת &nbsp; ☐ ניקיון הבית &nbsp; ☐ הכנת בגדי שבת</div>
-    </div>`;
+  } else {
+    html += `<div class="sec">⏰ שגרות היום</div>`;
+    html += `<div style="display:flex;flex-direction:column">`;
+    blocks.forEach((b,i) => {
+      const isCurrent = isToday && i===currentIdx;
+      const isPast = isToday && i<currentIdx;
+      const isDone = b.done;
+      html += `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);opacity:${isPast||isDone?'0.5':'1'}">
+        <div style="width:44px;flex-shrink:0;font-size:11px;font-weight:700;color:${isCurrent?b.color:'var(--muted)'};padding-top:2px">${b.time}</div>
+        <div style="width:2px;flex-shrink:0;background:${isDone?'#3ecf8e':isCurrent?b.color:'var(--border)'};border-radius:1px;position:relative">
+          <div style="position:absolute;top:4px;left:50%;transform:translateX(-50%);width:${isCurrent?'10px':'7px'};height:${isCurrent?'10px':'7px'};border-radius:50%;background:${isDone?'#3ecf8e':isCurrent?b.color:'var(--border2)'};${isCurrent?'box-shadow:0 0 0 3px '+b.color+'33':''}"></div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:${isCurrent?'700':'500'};color:${isDone?'#3ecf8e':isCurrent?b.color:'var(--text)'};margin-bottom:2px;${isDone?'text-decoration:line-through':''}">${b.icon} ${b.title}</div>
+          <div style="font-size:11px;color:var(--muted)">${b.detail}</div>
+          ${isCurrent?`<div style="font-size:10px;font-weight:700;color:${b.color};margin-top:3px">◀ עכשיו</div>`:''}
+          ${isDone?`<div style="font-size:10px;color:#3ecf8e;margin-top:2px">✓ בוצע</div>`:''}
+        </div>
+        ${b.taskId?`<div class="task-cb ${isDone?'done':''}" onclick="toggleTask(${b.taskId});renderToday()" style="flex-shrink:0;width:20px;height:20px;font-size:10px;margin-top:2px">${isDone?'✓':''}</div>`:''}
+      </div>`;
+    });
+    html += `</div>`;
   }
 
   html += `<div style="height:30px"></div>`;
@@ -1531,6 +2619,9 @@ function showFiltered(type) {
   if(type==='all') {
     filtered = [...tasks.filter(t=>!t.done)].sort((a,b)=>PORDER.indexOf(a.priority)-PORDER.indexOf(b.priority));
     title = '📋 כל המשימות הפתוחות';
+  } else if(type==='manager') {
+    filtered = tasks.filter(t=>!t.done && t.priority==='yellow');
+    title = '⭐ משימות ממנהל ישיר';
   } else if(type==='urgent') {
     filtered = tasks.filter(t=>!t.done && t.priority==='urgent');
     title = '🔴 משימות דחופות';
@@ -1584,77 +2675,43 @@ function toggleTaskInFilter(id, type) {
 }
 
 // ── TOP 3 ──
-async function showTop3() {
-  const now = new Date();
-  const dow = now.getDay();
-  const isFriday = dow===5, isThursday = dow===4;
-  const dayName = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'][dow];
+function showTop3() {
+  // Work tasks first (yellow then urgent), then other domains by order
+  const open = tasks.filter(t=>!t.done && t.priority!=='routine');
+  const workUrgent = open.filter(t=>t.domain==='work' && t.priority==='yellow');
+  const workRed = open.filter(t=>t.domain==='work' && t.priority==='urgent');
+  const otherRed = open.filter(t=>t.domain!=='work' && t.priority==='urgent');
+  const workImp = open.filter(t=>t.domain==='work' && t.priority==='important');
+  const otherImp = open.filter(t=>t.domain!=='work' && t.priority==='important');
+  const rest = open.filter(t=>t.priority==='low'||t.priority==='');
 
-  const urgent = tasks.filter(t=>!t.done&&t.priority==='urgent');
-  const fromManager = tasks.filter(t=>!t.done&&t.priority==='yellow');
-  const important = tasks.filter(t=>!t.done&&t.priority==='important');
-  const projects = tasks.filter(t=>!t.done&&t.priority==='project');
-  const regular = tasks.filter(t=>!t.done&&t.priority==='');
-  const top3 = [...urgent,...fromManager,...important,...projects,...regular].slice(0,3);
+  const sorted = [...workUrgent, ...workRed, ...otherRed, ...workImp, ...otherImp, ...rest];
+  const top = sorted.slice(0,3);
 
-  document.getElementById('top3Content').innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div><div style="font-size:16px;font-weight:800">🏆 Top 3 להיום</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">יום ${dayName}</div></div>
-      <button onclick="closeTop3()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
-    </div>
-    <div style="text-align:center;padding:20px;color:var(--muted)"><div style="font-size:24px;margin-bottom:8px">🤔</div><div>בוחר את 3 המשימות הכי חשובות...</div></div>`;
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-size:16px;font-weight:800">🏆 Top 3</div>
+    <button onclick="document.getElementById('top3Overlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
+  </div>`;
+
+  if(!top.length) { html += '<div style="text-align:center;color:var(--muted);padding:20px">אין משימות פתוחות 🎉</div>'; }
+
+  const colors=['#f04747','#f07030','#f0c030'];
+  top.forEach((t,i)=>{
+    const dom = domains.find(d=>d.id===t.domain);
+    const color = colors[i];
+    const ptag = t.priority==='yellow'?'⭐':t.priority==='urgent'?'🔴':t.priority==='important'?'🟠':'🟢';
+    html += `<div style="background:var(--s2);border:1px solid var(--border);border-right:4px solid ${color};border-radius:12px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:20px;font-weight:800;color:${color}">${i+1}</div>
+        <div style="flex:1;font-size:13px;font-weight:700">${t.name}</div>
+        <div class="task-cb ${t.done?'done':''}" onclick="toggleTask(${t.id});showTop3()" style="flex-shrink:0">${t.done?'✓':''}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">${ptag} ${dom?.icon} ${dom?.name}</div>
+    </div>`;
+  });
+
+  document.getElementById('top3Content').innerHTML = html;
   document.getElementById('top3Overlay').classList.add('open');
-
-  const tasksSummary = top3.map((t,i)=>{
-    const dom=domains.find(d=>d.id===t.domain);
-    return `${i+1}. "${t.name}" — ${dom?.name} | ${t.priority||'רגיל'}`;
-  }).join('\n');
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-      model:"claude-sonnet-4-20250514",max_tokens:500,
-      system:`אתה עוזר אישי. ענה בעברית, קצר ומעודד. השתמש באמוג'י.`,
-      messages:[{role:"user",content:`אלו 3 המשימות Top 3 שלי להיום (יום ${dayName}):\n${tasksSummary}\n\nכתוב משפט קצר מעודד לכל אחת — למה חשוב לסיים אותה דווקא היום. ואחרי השלוש — משפט מעודד אחד קצר.`}]
-    })});
-    const data=await res.json();
-    const aiComment=data.content?.map(c=>c.text||'').join('')||'';
-
-    let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div><div style="font-size:16px;font-weight:800">🏆 Top 3 להיום</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">יום ${dayName}</div></div>
-      <button onclick="closeTop3()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button></div>`;
-
-    const colors=['#f04747','#f07030','#f0c030'];
-    const nums=['①','②','③'];
-    top3.forEach((t,i)=>{
-      const dom=domains.find(d=>d.id===t.domain);
-      html+=`<div style="background:var(--s2);border:1px solid var(--border);border-right:4px solid ${colors[i]};border-radius:14px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start">
-        <div style="font-size:22px;flex-shrink:0">${nums[i]}</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700;margin-bottom:3px">${t.name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${dom?.icon} ${dom?.name}</div>
-        </div>
-        <div class="task-cb ${t.done?'done':''}" onclick="toggleTaskTop3(${t.id})" style="width:22px;height:22px;font-size:12px;flex-shrink:0">${t.done?'✓':''}</div>
-      </div>`;
-    });
-
-    if(aiComment) html+=`<div style="background:rgba(91,141,238,.1);border:1px solid rgba(91,141,238,.3);border-radius:14px;padding:14px;margin-top:4px;font-size:12px;line-height:1.7">${aiComment.replace(/\n/g,'<br>')}</div>`;
-    html+=`<button onclick="closeTop3()" style="width:100%;margin-top:14px;padding:12px;background:linear-gradient(135deg,#3a6ee8,#8b5cf6);border:none;border-radius:12px;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">יאללה, מתחיל! 💪</button>`;
-    document.getElementById('top3Content').innerHTML=html;
-  } catch(e) {
-    const colors=['#f04747','#f07030','#f0c030'];
-    let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:16px;font-weight:800">🏆 Top 3 להיום</div>
-      <button onclick="closeTop3()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button></div>`;
-    top3.forEach((t,i)=>{
-      const dom=domains.find(d=>d.id===t.domain);
-      html+=`<div class="task-item" style="border-right:4px solid ${colors[i]};margin-bottom:8px">
-        <div class="task-cb ${t.done?'done':''}" onclick="toggleTaskTop3(${t.id})">${t.done?'✓':''}</div>
-        <div class="task-body"><div class="task-name">${t.name}</div><div style="font-size:11px;color:var(--muted)">${dom?.icon} ${dom?.name}</div></div></div>`;
-    });
-    document.getElementById('top3Content').innerHTML=html;
-  }
 }
 
 function toggleTaskTop3(id){
@@ -1673,7 +2730,7 @@ function closeFilterModal() {
 
 // ── ARCHIVE ──
 function updateArchiveCount() {
-  const cnt = tasks.filter(t=>t.done).length;
+  const cnt = tasks.filter(t=>t.done && t.priority!=='routine').length;
   const el = document.getElementById('archiveCount');
   if(el) el.textContent = cnt;
   const btn = document.getElementById('archiveBtn');
@@ -1681,7 +2738,7 @@ function updateArchiveCount() {
 }
 
 function showArchive() {
-  const done = tasks.filter(t=>t.done);
+  const done = tasks.filter(t=>t.done && t.priority!=='routine');
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
     <div>
       <div style="font-size:16px;font-weight:800">📦 ארכיון</div>
@@ -1859,22 +2916,29 @@ function openAddTaskToProject(pid) {
   const p = projects.find(pr=>pr.id===pid);
   if(!p) return;
   closeFilterModal();
-  // open add task modal pre-filled
-  const sel = document.getElementById('domainSelect');
-  sel.innerHTML = domains.map(d=>`<option value="${d.id}" ${d.id===p.domain?'selected':''}>${d.icon} ${d.name}</option>`).join('');
-  updateSubcatSelect(p.subcat);
+  // reset modal
   document.getElementById('taskNameInput').value='';
   document.getElementById('prioritySelect').value='';
   document.getElementById('dueDateInput').value='';
   document.getElementById('dueDateFields').style.display='none';
   document.getElementById('dueDateBtn').style.display='flex';
+  document.getElementById('routineFields').style.display='none';
+  document.getElementById('priorityField').style.display='block';
+  document.getElementById('dueDateField').style.display='block';
+  document.getElementById('locationField').style.display='none';
+  // hide domain/subcat/project fields
+  document.getElementById('domainSelect').closest('.modal-field').style.display='none';
+  document.getElementById('subcatSelect').closest('.modal-field').style.display='none';
+  document.getElementById('projectField').style.display='none';
   document.getElementById('saveTaskBtn').textContent='הוסף לפרויקט';
   document.getElementById('deleteTaskBtn').style.display='none';
   document.getElementById('modalTitle').textContent=`＋ משימה — ${p.name}`;
   editingTask = null;
-  // store which project to attach to
   document.getElementById('modalOverlay').dataset.projectId = pid;
+  document.getElementById('modalOverlay').dataset.projectDomain = p.domain;
+  document.getElementById('modalOverlay').dataset.projectSubcat = p.subcat;
   document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('taskNameInput').focus(), 100);
 }
 
 function closeProjectDetail() {
@@ -1910,7 +2974,9 @@ function clearArchive() {
   save(); renderTasks();
 }
 
-// init
+// init — הכל מכווץ בפתיחה
+tasksCollapsed = true;
+collapsedGroups = new Set(['⭐ ממנהל ישיר','🔴 דחוף','🟠 חשוב','🎯 פרויקטים','🟢 לא דחוף','📋 כללי']);
 renderDash();
 updateArchiveCount();
 </script>
