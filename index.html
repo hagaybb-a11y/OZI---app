@@ -471,7 +471,7 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);heigh
         </select>
       </div>
       <div class="modal-field" id="daysField" style="display:none">
-        <label class="modal-label">ימים בשבוע</label>
+        <label class="modal-label">ימים פעילים (ריק = כל יום חוץ משבת)</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="0" class="day-cb"> א׳</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="1" class="day-cb"> ב׳</label>
@@ -1314,6 +1314,7 @@ function renderRoutines() {
   let html = `<div class="panel-header">
     <div class="panel-header-title">🔁 שגרות</div>
     <div class="panel-header-btns">
+      <button onclick="openAddRoutine()" style="background:var(--c1);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;padding:4px 10px;font-family:inherit">＋ שגרה</button>
       <button onclick="expandAllRoutines()" class="btn-expand-collapse">＋</button>
       <button onclick="collapseAllRoutines()" class="btn-expand-collapse">－</button>
     </div>
@@ -1470,6 +1471,11 @@ function collapseAllProjects() {
   document.querySelectorAll('[id^="proj-list-"]').forEach(el=>el.style.display='none');
   document.querySelectorAll('[id^="proj-chevron-"]').forEach(el=>el.style.transform='rotate(0deg)');
   document.querySelectorAll('[id^="proj-detail-"]').forEach(el=>{ if(!el.id.includes('chevron')) el.style.display='none'; });
+}
+
+function openAddRoutine() {
+  // פתח טופס הוספת משימה עם תת-קטגוריה שגרות
+  openAddTask('', 'שגרות');
 }
 
 function toggleProjDomain(domId) {
@@ -1917,7 +1923,7 @@ function openEditTask(id) {
     document.getElementById('routineFreq').value = t.routine.freq || 'daily';
     document.getElementById('routineTime').value = t.routine.time || '';
     document.getElementById('routineDuration').value = t.routine.duration || '';
-    onFreqChange(); // הצג את השדות הנכונים
+    onFreqChange(); // מציג שדות נכונים כולל ימים ליומי
     if(t.routine.days) {
       document.querySelectorAll('.day-cb').forEach(cb=>{
         cb.checked = t.routine.days.includes(parseInt(cb.value));
@@ -2270,7 +2276,7 @@ function onSubcatChange() {
 
 function onFreqChange() {
   const freq = document.getElementById('routineFreq').value;
-  document.getElementById('daysField').style.display = (freq==='weekly'||freq==='biweekly') ? 'block' : 'none';
+  document.getElementById('daysField').style.display = (freq==='daily'||freq==='weekly'||freq==='biweekly') ? 'block' : 'none';
   document.getElementById('dayOfMonthField').style.display = freq==='monthly' ? 'block' : 'none';
   document.getElementById('nextDateField').style.display = (freq==='biannual'||freq==='yearly') ? 'block' : 'none';
 }
