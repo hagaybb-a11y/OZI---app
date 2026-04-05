@@ -1,0 +1,27 @@
+{
+  "name": "OZI — Just Forget It",
+  "short_name": "OZI",
+  "description": "ניהול חיים אישי חכם",
+  "start_url": "/OZI---app/",
+  "scope": "/OZI---app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#171528",
+  "theme_color": "#171528",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
