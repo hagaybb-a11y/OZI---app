@@ -3716,7 +3716,7 @@ function renderToday(offset) {
           <div style="position:absolute;top:4px;left:50%;transform:translateX(-50%);width:${isCurrent?'10px':'7px'};height:${isCurrent?'10px':'7px'};border-radius:50%;background:${isDone?'#3ecf8e':isCurrent?b.color:'var(--border2)'};${isCurrent?'box-shadow:0 0 0 3px '+b.color+'33':''}"></div>
         </div>
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:${isCurrent?'700':'500'};color:${isDone?'#3ecf8e':isCurrent?b.color:'var(--text)'};margin-bottom:2px;${isDone?'text-decoration:line-through':''}display:flex;align-items:center;gap:5px"><span style="display:inline-flex;color:${b.color};flex-shrink:0">${b.icon}</span> ${b.title}</div>
+          <div style="font-size:13px;font-weight:${isCurrent?'700':'500'};color:${isDone?'#3ecf8e':isCurrent?b.color:'var(--text)'};margin-bottom:2px;${isDone?'text-decoration:line-through;':''}"><span style="display:inline-flex;color:${b.color};flex-shrink:0;margin-left:5px">${b.icon}</span>${b.title}</div>
           <div style="font-size:11px;color:var(--muted)">${b.detail}</div>
           ${isCurrent?`<div style="font-size:10px;font-weight:700;color:${b.color};margin-top:3px">◀ עכשיו</div>`:''}
           ${isDone?`<div style="font-size:10px;color:#3ecf8e;margin-top:2px">✓ בוצע</div>`:''}
