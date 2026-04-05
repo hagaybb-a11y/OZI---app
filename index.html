@@ -866,7 +866,19 @@ const INITIAL_PROJECTS = [
 let tasks = JSON.parse(localStorage.getItem('tasks') || 'null') || INITIAL_TASKS.map(t=>({...t}));
 let domains = JSON.parse(localStorage.getItem('domains') || 'null') || DOMAINS.map(d=>({...d,subcats:[...d.subcats]}));
 
-// ── מיגרציה: שחזור שגרות חסרות ──
+// ── מיגרציה: נקה שמות אייקונים שנדבקו לשמות שגרות ──
+const iconNames = ['activity','briefcase','heart','users','home2','shield','music2','trendingUp','sparkles','starOfDavid'];
+tasks = tasks.map(t => {
+  if(t.priority === 'routine') {
+    let name = t.name;
+    iconNames.forEach(icon => {
+      if(name.startsWith(icon + ' ')) name = name.slice(icon.length + 1);
+    });
+    return {...t, name};
+  }
+  return t;
+});
+localStorage.setItem('tasks', JSON.stringify(tasks));
 const existingRoutineIds = new Set(tasks.filter(t=>t.priority==='routine').map(t=>t.id));
 const missingRoutines = INITIAL_TASKS.filter(t=>t.priority==='routine' && !existingRoutineIds.has(t.id));
 if(missingRoutines.length > 0) {
