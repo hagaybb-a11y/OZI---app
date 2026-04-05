@@ -865,6 +865,14 @@ const INITIAL_PROJECTS = [
 
 let tasks = JSON.parse(localStorage.getItem('tasks') || 'null') || INITIAL_TASKS.map(t=>({...t}));
 let domains = JSON.parse(localStorage.getItem('domains') || 'null') || DOMAINS.map(d=>({...d,subcats:[...d.subcats]}));
+
+// ── מיגרציה: שחזור שגרות חסרות ──
+const existingRoutineIds = new Set(tasks.filter(t=>t.priority==='routine').map(t=>t.id));
+const missingRoutines = INITIAL_TASKS.filter(t=>t.priority==='routine' && !existingRoutineIds.has(t.id));
+if(missingRoutines.length > 0) {
+  tasks = [...tasks, ...missingRoutines.map(t=>({...t}))];
+  localStorage.setItem('tasks', JSON.stringify(tasks));
+}
 // מיגרציה — תקן שם תחום משפחה
 domains = domains.map(d => d.id==='family' ? {...d, name:'משפחה'} : d);
 let projects = JSON.parse(localStorage.getItem('projects') || 'null') || INITIAL_PROJECTS.map(p=>({...p}));
@@ -2341,6 +2349,9 @@ function renderDashInOverlay() {
       <div style="font-size:16px;font-weight:700">דשבורד</div>
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="showWeeklyReport()" style="background:var(--c1l);border:1.5px solid var(--c1);border-radius:var(--radius-xs);padding:5px 12px;font-size:12px;font-weight:600;color:var(--c1);cursor:pointer;font-family:inherit">דו"ח שבועי</button>
+        <button onclick="exportData()" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:5px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit">📤 ייצוא</button>
+        <button onclick="document.getElementById('importFile').click()" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:5px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit">📥 ייבוא</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
         <button onclick="document.getElementById('dashOverlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
       </div>
     </div>
@@ -2397,6 +2408,57 @@ function renderDashInOverlay() {
         </div>`;
       }).join('')}
     </div>`;
+}
+
+// ── ייצוא / ייבוא נתונים ──
+function exportData() {
+  const data = {
+    version: '1.0',
+    date: new Date().toISOString(),
+    tasks: tasks,
+    domains: domains,
+    projects: projects,
+    notes: notes_data,
+    customEvents: JSON.parse(localStorage.getItem('customEvents')||'{}')
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ozi-backup-${new Date().toLocaleDateString('he-IL').replace(/\//g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ הנתונים יוצאו בהצלחה', null);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if(!data.tasks || !data.domains) {
+        alert('קובץ לא תקין');
+        return;
+      }
+      if(!confirm(`לייבא נתונים מ-${data.date ? new Date(data.date).toLocaleDateString('he-IL') : 'קובץ גיבוי'}?\nהנתונים הנוכחיים יוחלפו.`)) return;
+      tasks = data.tasks;
+      domains = data.domains;
+      projects = data.projects || [];
+      notes_data = data.notes || [];
+      if(data.customEvents) localStorage.setItem('customEvents', JSON.stringify(data.customEvents));
+      save();
+      saveNotes();
+      renderDash();
+      document.getElementById('dashOverlay').classList.remove('open');
+      showToast('✅ הנתונים יובאו בהצלחה', null);
+    } catch(err) {
+      alert('שגיאה בקריאת הקובץ');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 function showWeeklyReport() {
