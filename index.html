@@ -2704,11 +2704,15 @@ function renderSmartListEditor(name) {
 
   // קטגוריות
   list.cats.forEach((cat, ci) => {
-    html += `<div style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="font-size:12px;font-weight:700;color:var(--c1);flex:1">${cat.name}</div>
-        <button onclick="deleteSmartCat('${name}',${ci})" style="background:none;border:none;color:var(--muted2);font-size:14px;cursor:pointer">×</button>
-      </div>`;
+    const isOpen = cat.open !== false;
+    html += `<div style="margin-bottom:8px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+      <div onclick="toggleSmartCat('${name}',${ci})" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none">
+        <div style="font-size:13px;font-weight:700;color:var(--c1);flex:1">${cat.name}</div>
+        <div style="font-size:11px;color:var(--muted2)">${cat.items.length} פריטים</div>
+        <div style="color:var(--muted2);font-size:14px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">›</div>
+        <button onclick="event.stopPropagation();deleteSmartCat('${name}',${ci})" style="background:none;border:none;color:var(--muted2);font-size:16px;cursor:pointer;padding:0 2px">×</button>
+      </div>
+      <div id="scat-${name.replace(/'/g,'')}-${ci}" style="display:${isOpen?'block':'none'};padding:0 12px 10px">`;
 
     cat.items.forEach((item, ii) => {
       html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
@@ -2718,12 +2722,9 @@ function renderSmartListEditor(name) {
       </div>`;
     });
 
-    // הוסף פריט לקטגוריה
-    html += `<div style="display:flex;gap:6px;margin-top:6px">
-      <input id="item-input-${ci}" class="modal-input" placeholder="+ פריט חדש..." style="flex:1;margin:0;font-size:12px;padding:6px 10px" onkeydown="if(event.key==='Enter')addSmartItem('${name}',${ci})">
-      <button onclick="addSmartItem('${name}',${ci})" style="background:var(--s3);border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:6px 10px;color:var(--muted);font-size:13px;cursor:pointer">+</button>
-    </div>
-    </div>`;
+    html += `<div style="margin-top:8px">
+      <input id="item-input-${ci}" class="modal-input" placeholder="+ פריט חדש (Enter להוספה)" style="width:100%;margin:0;font-size:12px;padding:6px 10px" onkeydown="if(event.key==='Enter')addSmartItem('${name}',${ci})">
+    </div></div></div>`;
   });
 
   // הוספה מהירה + בחירת קטגוריה
@@ -2743,6 +2744,14 @@ function renderSmartListEditor(name) {
   // הוסף קטגוריה חדשה — דרך כפתור בכותרת
 
   el.innerHTML = html;
+}
+
+function toggleSmartCat(listName, ci) {
+  const cat = smart_lists[listName]?.cats[ci];
+  if(!cat) return;
+  cat.open = cat.open === false ? true : false;
+  saveSmartLists();
+  renderSmartListEditor(listName);
 }
 
 function addQuickSmartItem(listName) {
