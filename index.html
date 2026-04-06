@@ -1109,6 +1109,18 @@ function loadNoteToEditor(id) {
   textArea.onblur = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
   textArea.onkeydown = (e) => {
     if(e.key==='Enter') {
+      const note2 = notes_data.find(n=>n.id===id);
+      // אם יש כבר צ'קליסט — Enter מוסיף שורת צ'ק חדשה
+      if(note2?.checks?.length > 0) {
+        e.preventDefault();
+        const el2 = document.getElementById('noteEditor');
+        const newItem = createCheckItem('', false, id);
+        el2.appendChild(newItem);
+        if(!textArea.value.trim()) textArea.style.display = 'none';
+        setTimeout(()=>newItem.querySelector('textarea,input')?.focus(), 30);
+        saveCheckItems(id);
+        return;
+      }
       const val = textArea.value;
       const pos = textArea.selectionStart;
       const lineStart = val.lastIndexOf('\n',pos-1)+1;
@@ -1194,17 +1206,21 @@ function createCheckItem(text, done, noteId) {
     saveCheckItems(noteId);
   };
 
-  const input = document.createElement('input');
-  input.type = 'text';
+  const input = document.createElement('textarea');
+  input.rows = 1;
   input.value = text;
-  input.style.cssText = `flex:1;border:none;background:transparent;outline:none;font-size:14px;font-family:inherit;direction:rtl;color:var(--text);${done?'text-decoration:line-through;color:var(--muted)':''}`;
-  input.oninput = () => saveCheckItems(noteId);
+  input.style.cssText = `flex:1;border:none;background:transparent;outline:none;font-size:14px;font-family:inherit;direction:rtl;color:var(--text);resize:none;overflow:hidden;line-height:1.5;padding:0;${done?'text-decoration:line-through;color:var(--muted)':''}`;
+  // גלישה אוטומטית
+  const autoResize = () => { input.style.height='auto'; input.style.height=input.scrollHeight+'px'; };
+  input.addEventListener('input', autoResize);
+  setTimeout(autoResize, 0);
+  input.oninput = () => { autoResize(); saveCheckItems(noteId); };
   input.onkeydown = (e) => {
     if(e.key==='Enter') {
       e.preventDefault();
       const newItem = createCheckItem('', false, noteId);
       row.parentNode.insertBefore(newItem, row.nextSibling);
-      newItem.querySelector('input')?.focus();
+      newItem.querySelector('textarea')?.focus();
       saveCheckItems(noteId);
     }
     if(e.key==='Backspace' && input.value==='') {
@@ -1285,7 +1301,7 @@ function saveCheckItems(noteId) {
     note.checks = [];
     rows.forEach(row => {
       const box = row.querySelector('.note-check-box');
-      const input = row.querySelector('input[type="text"]');
+      const input = row.querySelector('textarea') || row.querySelector('input');
       if(input) {
         note.checks.push({text:input.value, done:box?.classList.contains('checked')||false});
       }
@@ -1307,7 +1323,7 @@ function insertFormatAndFocus(fmt) {
   if(ta && !ta.value.trim()) ta.style.display = 'none';
   const newItem = createCheckItem('', false, noteId);
   el.appendChild(newItem);
-  const input = newItem.querySelector('input');
+  const input = newItem.querySelector('textarea,input');
   if(input) {
     newItem.scrollIntoView({block:'nearest'});
     input.focus();
