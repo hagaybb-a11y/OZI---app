@@ -379,6 +379,18 @@ body{font-family:'Rubik',sans-serif;background:var(--bg);color:var(--text);heigh
   </div>
 </div>
 
+<!-- SMART CAT INPUT OVERLAY -->
+<div class="modal-overlay" id="smartCatOverlay" style="align-items:center">
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px;width:88%;max-width:340px;box-shadow:var(--shadow-lg)">
+    <div style="font-size:15px;font-weight:800;margin-bottom:16px;text-align:center">+ קטגוריה חדשה</div>
+    <input id="smartCatInputField" class="modal-input" placeholder="שם הקטגוריה..." style="width:100%;margin-bottom:14px;font-size:14px" onkeydown="if(event.key==='Enter')confirmSmartCat()">
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('smartCatOverlay').classList.remove('open')" style="flex:1;background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:11px;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer">ביטול</button>
+      <button onclick="confirmSmartCat()" style="flex:1;background:var(--c1);border:none;border-radius:var(--radius-sm);padding:11px;font-family:inherit;font-size:13px;font-weight:700;color:#fff;cursor:pointer">הוסף</button>
+    </div>
+  </div>
+</div>
+
 <!-- SHOPPING LIST OVERLAY -->
 <div class="modal-overlay" id="shoppingOverlay" style="align-items:center">
   <div class="modal" style="max-height:88vh;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:var(--radius);width:94%">
@@ -2744,12 +2756,22 @@ function addQuickSmartItem(listName) {
   renderSmartListEditor(listName);
 }
 
+let _smartCatTargetList = '';
 function promptAddSmartCat(listName) {
-  const name = prompt('שם הקטגוריה החדשה:');
-  if(!name?.trim()) return;
-  smart_lists[listName].cats.push({name: name.trim(), items:[]});
+  _smartCatTargetList = listName;
+  const input = document.getElementById('smartCatInputField');
+  input.value = '';
+  document.getElementById('smartCatOverlay').classList.add('open');
+  setTimeout(()=>input.focus(), 100);
+}
+
+function confirmSmartCat() {
+  const name = document.getElementById('smartCatInputField')?.value?.trim();
+  document.getElementById('smartCatOverlay').classList.remove('open');
+  if(!name || !_smartCatTargetList) return;
+  smart_lists[_smartCatTargetList].cats.push({name, items:[]});
   saveSmartLists();
-  renderSmartListEditor(listName);
+  renderSmartListEditor(_smartCatTargetList);
 }
 
 function addSmartCat(listName) {
