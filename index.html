@@ -523,7 +523,7 @@ body{font-family:'Rubik',sans-serif;background:var(--bg);color:var(--text);heigh
         </select>
       </div>
       <div class="modal-field" id="daysField" style="display:none">
-        <label class="modal-label">ימים פעילים (ריק = כל יום חוץ משבת)</label>
+        <label class="modal-label">ימים פעילים</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="0" class="day-cb"> א׳</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="1" class="day-cb"> ב׳</label>
@@ -531,6 +531,7 @@ body{font-family:'Rubik',sans-serif;background:var(--bg);color:var(--text);heigh
           <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="3" class="day-cb"> ד׳</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="4" class="day-cb"> ה׳</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="5" class="day-cb"> ו׳</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="6" class="day-cb"> ש׳</label>
         </div>
       </div>
       <div class="modal-field" id="dayOfMonthField" style="display:none">
@@ -3149,7 +3150,7 @@ function renderDash() {
       const PRIO = ['yellow','urgent','important','low',''];
       const isRoutineSubcat = sub === 'שגרות' || sub.startsWith('שגרות');
       const subTasks = domTasks
-        .filter(t => t.subcat===sub && (isRoutineSubcat ? t.priority==='routine' : t.priority!=='routine'))
+        .filter(t => t.subcat===sub && (isRoutineSubcat ? t.priority==='routine' : t.priority!=='routine') && !t.projectId)
         .sort((a,b)=>{
           if(isRoutineSubcat) {
             // מיין לפי שעה
@@ -3206,26 +3207,43 @@ function renderDash() {
 
         // פרויקטים בתוך הגוש
         if(subProjects.length > 0) {
+          const PRIO = ['yellow','urgent','important','low',''];
           subProjects.forEach(p => {
-            const pTaskCount = tasks.filter(t=>t.projectId===p.id&&!t.done).length;
-            const pDone = tasks.filter(t=>t.projectId===p.id&&t.done).length;
-            const pTotal = pTaskCount + pDone;
+            const pTasksAll = tasks.filter(t=>t.projectId===p.id);
+            const pTasksOpen = pTasksAll.filter(t=>!t.done).sort((a,b)=>PRIO.indexOf(a.priority)-PRIO.indexOf(b.priority));
+            const pDone = pTasksAll.filter(t=>t.done).length;
+            const pTotal = pTasksAll.length;
             const pct = pTotal ? Math.round(pDone/pTotal*100) : 0;
-            const pUrgent = tasks.filter(t=>t.projectId===p.id&&!t.done&&t.priority==='urgent').length;
-            html += `<div onclick="openProjectDetail('${p.id}');event.stopPropagation()"
-              style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--s1)">
-              <div style="color:${dom.color};display:flex;align-items:center;flex-shrink:0">${I.target.replace(/width="\d+"/,'width="16"').replace(/height="\d+"/,'height="16"')}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:600;color:var(--text)">${p.name}</div>
-                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-                  <div style="flex:1;background:var(--s3);border-radius:3px;height:3px;overflow:hidden">
-                    <div style="background:${dom.color};height:100%;width:${pct}%;border-radius:3px"></div>
+            const pUrgent = pTasksOpen.filter(t=>t.priority==='urgent').length;
+            const projDetailId = `pd-${p.id}-${dom.id}`;
+            html += `<div style="border-bottom:1px solid var(--border)">
+              <div onclick="toggleProjInDomain('${projDetailId}');event.stopPropagation()"
+                style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;background:var(--s1)">
+                <div style="color:${dom.color};display:flex;align-items:center;flex-shrink:0">${I.target.replace(/width="\d+"/,'width="16"').replace(/height="\d+"/,'height="16"')}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;color:var(--text)">${p.name}</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                    <div style="flex:1;background:var(--s3);border-radius:3px;height:3px;overflow:hidden">
+                      <div style="background:${dom.color};height:100%;width:${pct}%;border-radius:3px"></div>
+                    </div>
+                    <div style="font-size:10px;color:var(--muted2)">${pTasksOpen.length} משימות</div>
                   </div>
-                  <div style="font-size:10px;color:var(--muted2)">${pTaskCount} משימות${p.dueDate?` · ${formatDueDate(p.dueDate)}`:''}</div>
                 </div>
+                ${pUrgent?`<span style="font-size:10px;background:rgba(239,68,68,.1);color:var(--red);border-radius:20px;padding:1px 6px;font-weight:600">${pUrgent}</span>`:''}
+                <div id="${projDetailId}-chev" style="color:var(--muted2);font-size:12px;transition:transform .2s">›</div>
               </div>
-              ${pUrgent?`<span style="font-size:10px;background:rgba(239,68,68,.1);color:var(--red);border-radius:20px;padding:1px 6px;font-weight:600">${pUrgent}</span>`:''}
-              <div style="color:var(--muted2);font-size:12px">›</div>
+              <div id="${projDetailId}" style="display:none;padding:0 14px 8px 42px;background:var(--s2)">
+                ${pTasksOpen.map(t => {
+                  const pcolor = t.priority==='urgent'?'var(--red)':t.priority==='yellow'?'var(--yellow)':t.priority==='important'?'var(--orange)':'var(--green)';
+                  return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)" onclick="openEditTask(${t.id});event.stopPropagation()">
+                    <div class="task-cb" onclick="event.stopPropagation();toggleTaskInDash(${t.id})" style="flex-shrink:0;width:18px;height:18px;font-size:10px"></div>
+                    <div style="flex:1;font-size:12px;font-weight:500">${t.name}</div>
+                    <div style="width:7px;height:7px;border-radius:50%;background:${pcolor};flex-shrink:0"></div>
+                  </div>`;
+                }).join('')}
+                ${pTasksOpen.length===0?`<div style="font-size:11px;color:var(--muted2);padding:8px 0">אין משימות פתוחות ✓</div>`:''}
+                <button onclick="openAddTaskToProject('${p.id}');event.stopPropagation()" style="width:100%;margin-top:6px;padding:7px;background:transparent;border:1.5px dashed var(--border2);border-radius:var(--radius-xs);color:var(--muted);font-family:inherit;font-size:11px;cursor:pointer">+ הוסף משימה</button>
+              </div>
             </div>`;
           });
         }
@@ -3248,6 +3266,15 @@ function renderDash() {
     openDomains.forEach(id => document.getElementById('dc-'+id)?.classList.add('open'));
     openSubcats.forEach(id => { const el = document.getElementById(id); if(el) el.style.display='block'; });
   }
+}
+
+function toggleProjInDomain(id) {
+  const el = document.getElementById(id);
+  const chev = document.getElementById(id+'-chev');
+  if(!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if(chev) chev.style.transform = isOpen ? '' : 'rotate(90deg)';
 }
 
 function toggleSubcatTasks(key) {
@@ -3425,7 +3452,7 @@ function onFreqChange() {
   document.getElementById('nextDateField').style.display = (freq==='biannual'||freq==='yearly') ? 'block' : 'none';
   // ביומי — סמן כל ימי השבוע חוץ משבת
   if(freq==='daily') {
-    document.querySelectorAll('.day-cb').forEach(cb => cb.checked = cb.value !== '6');
+    document.querySelectorAll('.day-cb').forEach(cb => cb.checked = true);
   }
 }
 
@@ -3449,6 +3476,14 @@ function updateProjectSelect(domId) {
       const domainId = document.getElementById('domainSelect').value;
       closeModal();
       openAddProject(domainId, '');
+    } else if(sel.value) {
+      // שיוך לפרויקט — החלף subcat אוטומטית לפרויקטים
+      const subcatSel = document.getElementById('subcatSelect');
+      if(subcatSel) {
+        for(let opt of subcatSel.options) {
+          if(opt.value.includes('פרויקט')) { subcatSel.value = opt.value; break; }
+        }
+      }
     }
   };
 }
