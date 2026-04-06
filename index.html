@@ -1175,35 +1175,40 @@ function createCheckItem(text, done, noteId) {
   row.className = 'note-check-row';
   row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:2px 0;border-radius:8px;transition:background .1s,opacity .1s,transform .1s;touch-action:pan-y';
 
-  // ידית גרירה (לחיצה ארוכה)
+  // ידית גרירה
   const handle = document.createElement('div');
   handle.innerHTML = '⠿';
-  handle.style.cssText = 'color:var(--muted2);font-size:18px;cursor:grab;padding:0 2px;flex-shrink:0;user-select:none;touch-action:none;line-height:1';
+  handle.style.cssText = 'color:var(--muted);font-size:22px;padding:4px 8px;flex-shrink:0;user-select:none;touch-action:none;cursor:grab;min-width:36px;display:flex;align-items:center;justify-content:center';
 
-  // Touch drag
+  // מניעת פתיחת מקלדת בלחיצה על ידית
+  handle.addEventListener('touchstart', (e) => { e.stopPropagation(); }, {passive:true});
+  handle.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+
   let longPressTimer = null;
   let isDragging = false;
-  let dragClone = null;
-  let startY = 0;
 
   const startLongPress = (e) => {
-    const touch = e.touches?.[0] || e;
-    startY = touch.clientY;
+    e.stopPropagation();
+    const touch = e.touches[0];
     longPressTimer = setTimeout(() => {
       isDragging = true;
-      row.style.opacity = '0.4';
+      row.style.opacity = '0.5';
       row.style.background = 'var(--s3)';
-      navigator.vibrate?.(30);
-    }, 300);
+      row.style.transform = 'scale(1.02)';
+      navigator.vibrate?.(40);
+      // blur any active input so keyboard closes
+      document.activeElement?.blur();
+    }, 250);
   };
 
   const onTouchMove = (e) => {
     if(!isDragging) { clearTimeout(longPressTimer); return; }
     e.preventDefault();
+    e.stopPropagation();
     const y = e.touches[0].clientY;
     const el = document.getElementById('noteEditor');
     const rows = [...el.querySelectorAll('.note-check-row')];
-    rows.forEach(r => r.style.outline = '');
+    rows.forEach(r => { r.style.outline = ''; r.style.borderTop = ''; });
     const target = rows.find(r => {
       if(r === row) return false;
       const rect = r.getBoundingClientRect();
@@ -1214,11 +1219,15 @@ function createCheckItem(text, done, noteId) {
 
   const onTouchEnd = (e) => {
     clearTimeout(longPressTimer);
-    document.querySelectorAll('.note-check-row').forEach(r => r.style.outline = '');
-    if(!isDragging) { isDragging = false; return; }
+    document.querySelectorAll('.note-check-row').forEach(r => {
+      r.style.outline = '';
+      r.style.borderTop = '';
+    });
+    if(!isDragging) return;
     isDragging = false;
     row.style.opacity = '1';
     row.style.background = '';
+    row.style.transform = '';
     const y = e.changedTouches[0].clientY;
     const el = document.getElementById('noteEditor');
     const rows = [...el.querySelectorAll('.note-check-row')];
@@ -1236,7 +1245,7 @@ function createCheckItem(text, done, noteId) {
     }
   };
 
-  handle.addEventListener('touchstart', startLongPress, {passive:true});
+  handle.addEventListener('touchstart', startLongPress, {passive:false});
   handle.addEventListener('touchmove', onTouchMove, {passive:false});
   handle.addEventListener('touchend', onTouchEnd);
 
@@ -2681,14 +2690,12 @@ function renderSmartListEditor(name) {
   list.cats.forEach((cat, ci) => {
     const isOpen = cat.open !== false;
     html += `<div style="margin-bottom:8px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
-      <div onclick="toggleSmartCat('${name}',${ci})" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none">
-        <div id="scat-name-${name.replace(/'/g,'')}-${ci}" 
-          style="font-size:13px;font-weight:700;color:var(--c1);flex:1;user-select:none"
-          ontouchstart="startCatLongPress(event,'${name}',${ci})"
-          ontouchend="cancelCatLongPress()"
-          ontouchmove="cancelCatLongPress()"
-          ondblclick="event.stopPropagation();editSmartCatName('${name}',${ci})"
-        >${cat.name} <span style="font-size:9px;color:var(--muted2)">✎</span></div>
+      <div id="scat-hdr-${name.replace(/'/g,'')}-${ci}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none"
+        ontouchstart="handleCatHeaderTouch(event,'${name}',${ci})"
+        ontouchend="endCatHeaderTouch(event,'${name}',${ci})"
+        ontouchmove="cancelCatHeaderTouch()"
+        onclick="toggleSmartCat('${name}',${ci})">
+        <div style="font-size:13px;font-weight:700;color:var(--c1);flex:1">${cat.name} <span style="font-size:9px;color:var(--muted2)">✎</span></div>
         <div style="font-size:11px;color:var(--muted2)">${cat.items.length} פריטים</div>
         <div style="color:var(--muted2);font-size:14px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">›</div>
         <button onclick="event.stopPropagation();deleteSmartCat('${name}',${ci})" style="background:none;border:none;color:var(--muted2);font-size:16px;cursor:pointer;padding:0 2px">×</button>
@@ -2728,13 +2735,27 @@ function renderSmartListEditor(name) {
 }
 
 let _catLongPressTimer = null;
-function startCatLongPress(e, listName, ci) {
-  e.stopPropagation();
+let _catTouchMoved = false;
+
+function handleCatHeaderTouch(e, listName, ci) {
+  _catTouchMoved = false;
   _catLongPressTimer = setTimeout(() => {
-    navigator.vibrate?.(30);
-    editSmartCatName(listName, ci);
+    if(!_catTouchMoved) {
+      navigator.vibrate?.(40);
+      editSmartCatName(listName, ci);
+    }
   }, 500);
 }
+
+function endCatHeaderTouch(e, listName, ci) {
+  clearTimeout(_catLongPressTimer);
+}
+
+function cancelCatHeaderTouch() {
+  _catTouchMoved = true;
+  clearTimeout(_catLongPressTimer);
+}
+
 function cancelCatLongPress() {
   clearTimeout(_catLongPressTimer);
 }
