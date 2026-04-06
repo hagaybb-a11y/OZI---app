@@ -374,8 +374,8 @@ body{font-family:'Rubik',sans-serif;background:var(--bg);color:var(--text);heigh
 
 <!-- NOTEPAD MODAL -->
 <div class="modal-overlay" id="notepadOverlay" style="align-items:center">
-  <div class="modal" style="max-height:80vh;height:80vh;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:var(--radius);width:94%">
-    <div id="notepadMain" style="flex:1;overflow-y:auto;padding:16px"></div>
+  <div class="modal" style="max-height:90vh;height:90vh;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:var(--radius);width:94%">
+    <div id="notepadMain" style="flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch"></div>
   </div>
 </div>
 
@@ -1098,7 +1098,7 @@ function openEditNote(id) {
       oninput="onNoteEditorInput('${id}')"
       onkeydown="handleEditorKeydown(event,'${id}')"
       onclick="handleEditorClick(event)"
-      style="min-height:260px;padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:14px;line-height:1.9;font-family:inherit;direction:rtl;text-align:right;overflow-y:auto;cursor:text"></div>
+      style="min-height:120px;padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:14px;line-height:1.9;font-family:inherit;direction:rtl;text-align:right;cursor:text"></div>
     <style>
       #noteEditor:empty:before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
       .note-check-row{display:flex;align-items:center;gap:10px;margin:2px 0}
@@ -1173,44 +1173,72 @@ function loadNoteToEditor(id) {
 function createCheckItem(text, done, noteId) {
   const row = document.createElement('div');
   row.className = 'note-check-row';
-  row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:3px 0;border-radius:8px;transition:background .15s';
-  row.draggable = true;
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:2px 0;border-radius:8px;transition:background .1s,opacity .1s,transform .1s;touch-action:pan-y';
 
-  // ידית גרירה
+  // ידית גרירה (לחיצה ארוכה)
   const handle = document.createElement('div');
-  handle.innerHTML = '⋮⋮';
-  handle.style.cssText = 'color:var(--muted2);font-size:14px;cursor:grab;padding:0 2px;flex-shrink:0;user-select:none;touch-action:none';
-  handle.addEventListener('touchstart', onNoteTouchStart, {passive:false});
+  handle.innerHTML = '⠿';
+  handle.style.cssText = 'color:var(--muted2);font-size:18px;cursor:grab;padding:0 2px;flex-shrink:0;user-select:none;touch-action:none;line-height:1';
 
-  // drag events
-  row.addEventListener('dragstart', e => {
-    noteDragSrc = row;
-    row.style.opacity = '0.4';
-    e.dataTransfer.effectAllowed = 'move';
-  });
-  row.addEventListener('dragend', () => {
+  // Touch drag
+  let longPressTimer = null;
+  let isDragging = false;
+  let dragClone = null;
+  let startY = 0;
+
+  const startLongPress = (e) => {
+    const touch = e.touches?.[0] || e;
+    startY = touch.clientY;
+    longPressTimer = setTimeout(() => {
+      isDragging = true;
+      row.style.opacity = '0.4';
+      row.style.background = 'var(--s3)';
+      navigator.vibrate?.(30);
+    }, 300);
+  };
+
+  const onTouchMove = (e) => {
+    if(!isDragging) { clearTimeout(longPressTimer); return; }
+    e.preventDefault();
+    const y = e.touches[0].clientY;
+    const el = document.getElementById('noteEditor');
+    const rows = [...el.querySelectorAll('.note-check-row')];
+    rows.forEach(r => r.style.outline = '');
+    const target = rows.find(r => {
+      if(r === row) return false;
+      const rect = r.getBoundingClientRect();
+      return y >= rect.top && y <= rect.bottom;
+    });
+    if(target) target.style.outline = '2px solid var(--c1)';
+  };
+
+  const onTouchEnd = (e) => {
+    clearTimeout(longPressTimer);
+    document.querySelectorAll('.note-check-row').forEach(r => r.style.outline = '');
+    if(!isDragging) { isDragging = false; return; }
+    isDragging = false;
     row.style.opacity = '1';
-    document.querySelectorAll('.note-check-row').forEach(r=>r.style.background='');
-  });
-  row.addEventListener('dragover', e => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    row.style.background = 'var(--s3)';
-  });
-  row.addEventListener('dragleave', () => row.style.background = '');
-  row.addEventListener('drop', e => {
-    e.preventDefault();
-    if(noteDragSrc && noteDragSrc !== row) {
-      const el = document.getElementById('noteEditor');
-      const rows = [...el.querySelectorAll('.note-check-row')];
-      const srcIdx = rows.indexOf(noteDragSrc);
-      const dstIdx = rows.indexOf(row);
-      if(srcIdx > dstIdx) row.parentNode.insertBefore(noteDragSrc, row);
-      else row.parentNode.insertBefore(noteDragSrc, row.nextSibling);
-      row.style.background = '';
+    row.style.background = '';
+    const y = e.changedTouches[0].clientY;
+    const el = document.getElementById('noteEditor');
+    const rows = [...el.querySelectorAll('.note-check-row')];
+    const target = rows.find(r => {
+      if(r === row) return false;
+      const rect = r.getBoundingClientRect();
+      return y >= rect.top && y <= rect.bottom;
+    });
+    if(target) {
+      const srcIdx = rows.indexOf(row);
+      const dstIdx = rows.indexOf(target);
+      if(srcIdx > dstIdx) target.parentNode.insertBefore(row, target);
+      else target.parentNode.insertBefore(row, target.nextSibling);
       saveCheckItems(noteId);
     }
-  });
+  };
+
+  handle.addEventListener('touchstart', startLongPress, {passive:true});
+  handle.addEventListener('touchmove', onTouchMove, {passive:false});
+  handle.addEventListener('touchend', onTouchEnd);
 
   const box = document.createElement('div');
   box.className = 'note-check-box' + (done?' checked':'');
@@ -1258,59 +1286,6 @@ function createCheckItem(text, done, noteId) {
   return row;
 }
 
-let noteDragSrc = null;
-
-// Touch drag for mobile
-let noteTouchDragRow = null;
-let noteTouchStartY = 0;
-
-function onNoteTouchStart(e) {
-  const row = e.target.closest('.note-check-row');
-  if(!row) return;
-  noteTouchDragRow = row;
-  noteTouchStartY = e.touches[0].clientY;
-  row.style.opacity = '0.5';
-
-  const onMove = (ev) => {
-    ev.preventDefault();
-    const y = ev.touches[0].clientY;
-    const el = document.getElementById('noteEditor');
-    const rows = [...el.querySelectorAll('.note-check-row')];
-    const target = rows.find(r => {
-      if(r === noteTouchDragRow) return false;
-      const rect = r.getBoundingClientRect();
-      return y >= rect.top && y <= rect.bottom;
-    });
-    rows.forEach(r=>r.style.background='');
-    if(target) target.style.background='var(--s3)';
-  };
-
-  const onEnd = (ev) => {
-    noteTouchDragRow.style.opacity='1';
-    const y = ev.changedTouches[0].clientY;
-    const el = document.getElementById('noteEditor');
-    const rows = [...el.querySelectorAll('.note-check-row')];
-    rows.forEach(r=>r.style.background='');
-    const target = rows.find(r => {
-      if(r === noteTouchDragRow) return false;
-      const rect = r.getBoundingClientRect();
-      return y >= rect.top && y <= rect.bottom;
-    });
-    if(target) {
-      const srcIdx = rows.indexOf(noteTouchDragRow);
-      const dstIdx = rows.indexOf(target);
-      if(srcIdx > dstIdx) target.parentNode.insertBefore(noteTouchDragRow, target);
-      else target.parentNode.insertBefore(noteTouchDragRow, target.nextSibling);
-      saveCheckItems(editingNoteId);
-    }
-    noteTouchDragRow = null;
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('touchend', onEnd);
-  };
-
-  document.addEventListener('touchmove', onMove, {passive:false});
-  document.addEventListener('touchend', onEnd);
-}
 
 function saveCheckItems(noteId) {
   const el = document.getElementById('noteEditor');
@@ -2707,7 +2682,13 @@ function renderSmartListEditor(name) {
     const isOpen = cat.open !== false;
     html += `<div style="margin-bottom:8px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
       <div onclick="toggleSmartCat('${name}',${ci})" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none">
-        <div style="font-size:13px;font-weight:700;color:var(--c1);flex:1">${cat.name}</div>
+        <div id="scat-name-${name.replace(/'/g,'')}-${ci}" 
+          style="font-size:13px;font-weight:700;color:var(--c1);flex:1;user-select:none"
+          ontouchstart="startCatLongPress(event,'${name}',${ci})"
+          ontouchend="cancelCatLongPress()"
+          ontouchmove="cancelCatLongPress()"
+          ondblclick="event.stopPropagation();editSmartCatName('${name}',${ci})"
+        >${cat.name} <span style="font-size:9px;color:var(--muted2)">✎</span></div>
         <div style="font-size:11px;color:var(--muted2)">${cat.items.length} פריטים</div>
         <div style="color:var(--muted2);font-size:14px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">›</div>
         <button onclick="event.stopPropagation();deleteSmartCat('${name}',${ci})" style="background:none;border:none;color:var(--muted2);font-size:16px;cursor:pointer;padding:0 2px">×</button>
@@ -2746,6 +2727,29 @@ function renderSmartListEditor(name) {
   el.innerHTML = html;
 }
 
+let _catLongPressTimer = null;
+function startCatLongPress(e, listName, ci) {
+  e.stopPropagation();
+  _catLongPressTimer = setTimeout(() => {
+    navigator.vibrate?.(30);
+    editSmartCatName(listName, ci);
+  }, 500);
+}
+function cancelCatLongPress() {
+  clearTimeout(_catLongPressTimer);
+}
+
+function editSmartCatName(listName, ci) {
+  _smartCatTargetList = listName;
+  _smartCatEditIdx = ci;
+  const input = document.getElementById('smartCatInputField');
+  const title = document.querySelector('#smartCatOverlay div div:first-child');
+  if(title) title.textContent = 'עריכת שם קטגוריה';
+  input.value = smart_lists[listName].cats[ci].name;
+  document.getElementById('smartCatOverlay').classList.add('open');
+  setTimeout(()=>{ input.focus(); input.select(); }, 100);
+}
+
 function toggleSmartCat(listName, ci) {
   const cat = smart_lists[listName]?.cats[ci];
   if(!cat) return;
@@ -2766,9 +2770,14 @@ function addQuickSmartItem(listName) {
 }
 
 let _smartCatTargetList = '';
+let _smartCatEditIdx = -1;
+
 function promptAddSmartCat(listName) {
   _smartCatTargetList = listName;
+  _smartCatEditIdx = -1;
   const input = document.getElementById('smartCatInputField');
+  const title = document.querySelector('#smartCatOverlay div div:first-child');
+  if(title) title.textContent = '+ קטגוריה חדשה';
   input.value = '';
   document.getElementById('smartCatOverlay').classList.add('open');
   setTimeout(()=>input.focus(), 100);
@@ -2778,7 +2787,13 @@ function confirmSmartCat() {
   const name = document.getElementById('smartCatInputField')?.value?.trim();
   document.getElementById('smartCatOverlay').classList.remove('open');
   if(!name || !_smartCatTargetList) return;
-  smart_lists[_smartCatTargetList].cats.push({name, items:[]});
+  if(_smartCatEditIdx >= 0) {
+    // עריכת שם קיים
+    smart_lists[_smartCatTargetList].cats[_smartCatEditIdx].name = name;
+  } else {
+    // קטגוריה חדשה
+    smart_lists[_smartCatTargetList].cats.push({name, items:[], open:true});
+  }
   saveSmartLists();
   renderSmartListEditor(_smartCatTargetList);
 }
