@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ozi-v24';
+const CACHE_NAME = 'ozi-v26';
 const ASSETS = [
   '/OZI---app/',
   '/OZI---app/index.html',

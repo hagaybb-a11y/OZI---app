@@ -928,6 +928,7 @@ projects = projects.map(p => ({...p, subcat: p.subcat || 'פרויקטים'}));
 projects.forEach(p => { if(!p.subcat || !p.subcat.includes('פרויקט')) p.subcat = 'פרויקטים'; });
 let nextProjectId = 'p'+(projects.length+10);
 let editMode = false;
+let locationFilter = {}; // {domainId+subcat: {home:true, out:true}}
 let nextId = Math.max(...tasks.map(t=>t.id)) + 1;
 // שמור מיגרציה
 localStorage.setItem('domains', JSON.stringify(domains));
@@ -3434,8 +3435,8 @@ function renderTaskItemFlat(t, dom) {
     return `<span class="tag" style="background:${isOverdue?'rgba(240,71,71,.15)':'rgba(240,167,50,.15)'};color:${isOverdue?'var(--red)':'var(--orange)'}">⏳ ${formatDueDate(t.dueDate)}</span>`;
   })() : '';
 
-  const locTag = t.location==='home'?`<span class="tag" style="background:#e8507a18;color:#e8507a">🏠 בבית</span>`:
-                 t.location==='out'?`<span class="tag" style="background:#e8507a18;color:#e8507a">🚗 בחוץ</span>`:'';
+  const locTag = t.location==='home'?`<span class="tag" style="background:rgba(239,68,68,.12);color:#ef4444">🏠 בבית</span>`:
+                 t.location==='out'?`<span class="tag" style="background:rgba(34,197,94,.12);color:#22c55e">🌳 בחוץ</span>`:'';
 
   const notesPreview = t.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">📝 ${t.notes}</div>` : '';
 
@@ -3654,6 +3655,14 @@ function renderDash() {
       const isRoutineSubcat = sub === 'שגרות' || sub.startsWith('שגרות');
       const subTasks = domTasks
         .filter(t => t.subcat===sub && (isRoutineSubcat ? t.priority==='routine' : t.priority!=='routine') && !t.projectId)
+        .filter(t => {
+          const lfKey = dom.id+'-'+si;
+          const lf = locationFilter[lfKey] || {home:true, out:true};
+          if(!t.location) return true; // ללא מיקום — תמיד מוצג
+          if(t.location==='home') return lf.home;
+          if(t.location==='out') return lf.out;
+          return true;
+        })
         .sort((a,b)=>{
           if(isRoutineSubcat) {
             // מיין לפי שעה
@@ -3665,6 +3674,13 @@ function renderDash() {
       const subProjects = projects.filter(p=>p.domain===dom.id&&p.subcat===sub&&!p.done);
       const isProjectSubcat = sub.includes('פרויקט');
       const sc = subTasks.length + (isProjectSubcat ? subProjects.length : 0);
+      // בדוק אם יש משימות עם מיקום בתת-קטגוריה זו
+      const allSubTasks = domTasks.filter(t => t.subcat===sub && t.priority!=='routine' && !t.projectId);
+      const hasLocations = allSubTasks.some(t=>t.location==='home'||t.location==='out');
+      const lfKey = dom.id+'-'+si;
+      if(!locationFilter[lfKey]) locationFilter[lfKey] = {home:true, out:true};
+      const lf = locationFilter[lfKey];
+
       html += `<div>`;
       // subcat header
       html += `<div class="subcat" onclick="toggleSubcatTasks('${dom.id}-${si}');event.stopPropagation()" style="cursor:pointer">`;
@@ -3673,8 +3689,12 @@ function renderDash() {
       } else {
         html += `<div class="subcat-name">${sub}</div>`;
       }
-      html += `<div class="subcat-meta">
-        <button onclick="event.stopPropagation();event.preventDefault();${isProjectSubcat ? `openAddProject('${dom.id}','')` : `openAddTask('${dom.id}','${sub}')`}" class="btn-expand-collapse" title="${isProjectSubcat ? 'פרויקט חדש' : 'הוסף משימה'}" style="color:var(--muted)">+</button>
+      html += `<div class="subcat-meta">`;
+      if(hasLocations) {
+        html += `<button onclick="event.stopPropagation();toggleLocFilter('${lfKey}','home')" style="background:${lf.home?'rgba(239,68,68,.2)':'var(--s2)'};border:1.5px solid ${lf.home?'#ef4444':'var(--border)'};border-radius:var(--radius-xs);padding:1px 5px;font-size:12px;cursor:pointer;transition:all .15s">🏠</button>
+        <button onclick="event.stopPropagation();toggleLocFilter('${lfKey}','out')" style="background:${lf.out?'rgba(34,197,94,.2)':'var(--s2)'};border:1.5px solid ${lf.out?'#22c55e':'var(--border)'};border-radius:var(--radius-xs);padding:1px 5px;font-size:12px;cursor:pointer;transition:all .15s">🌳</button>`;
+      }
+      html += `<button onclick="event.stopPropagation();event.preventDefault();${isProjectSubcat ? `openAddProject('${dom.id}','')` : `openAddTask('${dom.id}','${sub}')`}" class="btn-expand-collapse" title="${isProjectSubcat ? 'פרויקט חדש' : 'הוסף משימה'}" style="color:var(--muted)">+</button>
         <span class="subcat-count">${sc}</span><div class="subcat-dot" style="background:${dom.color}"></div>`;
       if(editMode) html += `<button class="del-btn" onclick="deleteSubcat(${di},${si});event.stopPropagation()">🗑️</button>`;
       html += `</div></div>`;
@@ -3791,6 +3811,16 @@ function expandAllDomains() {
 
 function collapseAllDomains() {
   domains.forEach(d => document.getElementById('dc-'+d.id)?.classList.remove('open'));
+}
+
+function toggleLocFilter(lfKey, type) {
+  if(!locationFilter[lfKey]) locationFilter[lfKey] = {home:true, out:true};
+  locationFilter[lfKey][type] = !locationFilter[lfKey][type];
+  // לפחות אחד חייב להיות פעיל
+  if(!locationFilter[lfKey].home && !locationFilter[lfKey].out) {
+    locationFilter[lfKey][type] = true;
+  }
+  renderDash();
 }
 
 function toggleDomainCard(id) {
