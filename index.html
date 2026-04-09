@@ -2304,6 +2304,8 @@ function renderProjects() {
             <div style="font-size:10px;color:var(--muted2);margin-top:3px">${pDone}/${pTasks.length} משימות${p.dueDate?` · ${formatDueDate(p.dueDate)}`:''}</div>
           </div>
           ${pUrgent?`<span style="font-size:10px;background:rgba(239,68,68,.1);color:var(--red);border-radius:20px;padding:2px 7px;font-weight:600">${pUrgent} דחוף</span>`:''}
+          <button onclick="event.stopPropagation();openEditProject('${p.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px">✏️</button>
+          <button onclick="event.stopPropagation();deleteProjectDirect('${p.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;padding:2px">🗑️</button>
           <div id="proj-detail-chevron-${p.id}" style="color:var(--muted2);font-size:12px;transition:transform .2s">▾</div>
         </div>
         <div id="proj-detail-${p.id}" style="display:none;padding:0 14px 10px 28px">`;
@@ -3753,6 +3755,7 @@ function renderDash() {
                   </div>
                 </div>
                 ${pUrgent?`<span style="font-size:10px;background:rgba(239,68,68,.1);color:var(--red);border-radius:20px;padding:1px 6px;font-weight:600">${pUrgent}</span>`:''}
+                <button onclick="event.stopPropagation();openEditProject('${p.id}')" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer;padding:2px 4px">✏️</button>
                 <div id="${projDetailId}-chev" style="color:var(--muted2);font-size:12px;transition:transform .2s">›</div>
               </div>
               <div id="${projDetailId}" style="display:none;padding:0 14px 8px 42px;background:var(--s2)">
@@ -4573,6 +4576,19 @@ function saveProject() {
   save(); closeProjectModal(); renderDash();
 }
 
+function deleteProjectDirect(pid) {
+  const p = projects.find(p=>p.id===pid);
+  if(!p) return;
+  if(!confirm(`למחוק את הפרויקט "${p.name}"?\nהמשימות המשויכות לא יימחקו.`)) return;
+  projects = projects.filter(pr=>pr.id!==pid);
+  // נתק משימות מהפרויקט
+  tasks.forEach(t => { if(t.projectId===pid) delete t.projectId; });
+  save();
+  closeProjectDetail();
+  renderDash();
+  if(document.querySelector('#panel-projects.on')) renderProjects();
+}
+
 function deleteProject() {
   if(!editingProject) return;
   if(!confirm('למחוק את הפרויקט?')) return;
@@ -4601,6 +4617,7 @@ function openProjectDetail(pid) {
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button onclick="openEditProject('${pid}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">✏️</button>
+      <button onclick="deleteProjectDirect('${pid}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">🗑️</button>
       <button onclick="closeProjectDetail()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
     </div>
   </div>`;
