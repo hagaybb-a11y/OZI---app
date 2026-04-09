@@ -379,6 +379,21 @@ body{font-family:'Rubik',sans-serif;background:var(--bg);color:var(--text);heigh
   </div>
 </div>
 
+<!-- ADD SMART LIST OVERLAY -->
+<div class="modal-overlay" id="addSmartListOverlay" style="align-items:center">
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px;width:88%;max-width:340px;box-shadow:var(--shadow-lg)">
+    <div style="font-size:15px;font-weight:800;margin-bottom:16px;text-align:center">+ רשימה חדשה</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">אמוג'י</div>
+    <input id="addListEmoji" class="modal-input" placeholder="🛒" style="width:100%;margin-bottom:12px;font-size:20px;text-align:center">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">שם הרשימה</div>
+    <input id="addListName" class="modal-input" placeholder="שם הרשימה..." style="width:100%;margin-bottom:16px" onkeydown="if(event.key==='Enter')confirmAddSmartList()">
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('addSmartListOverlay').classList.remove('open')" style="flex:1;background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:11px;font-family:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer">ביטול</button>
+      <button onclick="confirmAddSmartList()" style="flex:1;background:var(--c1);border:none;border-radius:var(--radius-sm);padding:11px;font-family:inherit;font-size:13px;font-weight:700;color:#fff;cursor:pointer">צור</button>
+    </div>
+  </div>
+</div>
+
 <!-- SMART CAT INPUT OVERLAY -->
 <div class="modal-overlay" id="smartCatOverlay" style="align-items:center">
   <div style="background:var(--s1);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px;width:88%;max-width:340px;box-shadow:var(--shadow-lg)">
@@ -2666,6 +2681,7 @@ function showChecklistTemplates() {
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button onclick="renderNotepadList()" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;cursor:pointer">‹</button>
       <div style="font-size:15px;font-weight:800;flex:1">📋 רשימות קבועות</div>
+      <button onclick="promptAddSmartList()" style="background:var(--c1);border:none;border-radius:var(--radius-xs);padding:5px 10px;font-size:11px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit">+ רשימה</button>
       <button onclick="document.getElementById('notepadOverlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
     </div>`;
 
@@ -2878,6 +2894,24 @@ function addQuickSmartItem(listName) {
 
 let _smartCatTargetList = '';
 let _smartCatEditIdx = -1;
+
+function promptAddSmartList() {
+  document.getElementById('addListName').value = '';
+  document.getElementById('addListEmoji').value = '';
+  document.getElementById('addSmartListOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('addListEmoji').focus(), 100);
+}
+
+function confirmAddSmartList() {
+  const name = document.getElementById('addListName')?.value?.trim();
+  const icon = document.getElementById('addListEmoji')?.value?.trim() || '📋';
+  document.getElementById('addSmartListOverlay').classList.remove('open');
+  if(!name) return;
+  if(smart_lists[name]) { alert('רשימה בשם זה כבר קיימת'); return; }
+  smart_lists[name] = {icon, cats:[]};
+  saveSmartLists();
+  showChecklistTemplates();
+}
 
 function promptAddSmartCat(listName) {
   _smartCatTargetList = listName;
