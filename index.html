@@ -1090,7 +1090,7 @@ function openEditNote(id) {
       <button onclick="insertFormat('numbered')" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
         <span style="background:var(--c1);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">1</span> ממוספר
       </button>
-      <button ontouchend="event.preventDefault();insertFormatAndFocus('☐ ')" onclick="insertFormatAndFocus('☐ ')" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
+      <button ontouchend="event.preventDefault();convertToChecklist()" onclick="convertToChecklist()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
         <span style="font-size:16px">☐</span> צ'קליסט
       </button>
     </div>
@@ -1123,8 +1123,12 @@ function loadNoteToEditor(id) {
   const textArea = document.createElement('textarea');
   textArea.id = 'noteTextArea';
   textArea.placeholder = 'כתוב כאן...';
-  textArea.style.cssText = 'width:100%;border:none;background:transparent;outline:none;resize:none;font-size:14px;line-height:1.9;font-family:inherit;direction:rtl;text-align:right;color:var(--text);min-height:80px';
+  textArea.style.cssText = 'width:100%;border:none;background:transparent;outline:none;resize:none;font-size:14px;line-height:1.9;font-family:inherit;direction:rtl;text-align:right;color:var(--text);min-height:80px;overflow:hidden';
   textArea.value = note.textContent || '';
+  // גדל אוטומטית לפי תוכן
+  const resizeTA = () => { textArea.style.height='auto'; textArea.style.height = textArea.scrollHeight + 'px'; };
+  textArea.addEventListener('input', resizeTA);
+  setTimeout(resizeTA, 30);
   textArea.oninput = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
   textArea.onblur = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
   textArea.onkeydown = (e) => {
@@ -1316,6 +1320,33 @@ function saveCheckItems(noteId) {
   if(ta) { note.textContent = ta.value; note.content = ta.value; }
   note.updated = Date.now();
   saveNotes();
+}
+
+function convertToChecklist() {
+  const ta = document.getElementById('noteTextArea');
+  const noteId = editingNoteId;
+  const note = notes_data.find(n=>n.id===noteId);
+  if(!note) return;
+
+  const el = document.getElementById('noteEditor');
+
+  // אם יש טקסט — המר כל שורה לצ'קבוקס
+  if(ta && ta.value.trim()) {
+    const lines = ta.value.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+    // נקה textarea
+    ta.value = '';
+    note.textContent = '';
+    ta.style.display = 'none';
+    // הוסף צ'קבוקס לכל שורה
+    lines.forEach(line => {
+      const item = createCheckItem(line, false, noteId);
+      el.appendChild(item);
+    });
+    saveCheckItems(noteId);
+  } else {
+    // אין טקסט — פשוט הוסף שורה ריקה
+    insertFormatAndFocus('☐ ');
+  }
 }
 
 function insertFormatAndFocus(fmt) {
@@ -2689,12 +2720,13 @@ function renderSmartListEditor(name) {
   // קטגוריות
   list.cats.forEach((cat, ci) => {
     const isOpen = cat.open !== false;
-    html += `<div style="margin-bottom:8px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+    html += `<div class="smart-cat-row" data-list="${name}" data-ci="${ci}" style="margin-bottom:8px;background:var(--s2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
       <div id="scat-hdr-${name.replace(/'/g,'')}-${ci}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none"
         ontouchstart="handleCatHeaderTouch(event,'${name}',${ci})"
         ontouchend="endCatHeaderTouch(event,'${name}',${ci})"
         ontouchmove="cancelCatHeaderTouch()"
         onclick="toggleSmartCat('${name}',${ci})">
+        <div ontouchstart="startCatDrag(event,'${name}',${ci})" ontouchmove="moveCatDrag(event,'${name}')" ontouchend="endCatDrag(event,'${name}')" onclick="event.stopPropagation()" style="color:var(--muted2);font-size:20px;padding:2px 6px;touch-action:none;flex-shrink:0;cursor:grab">⠿</div>
         <div style="font-size:13px;font-weight:700;color:var(--c1);flex:1">${cat.name} <span style="font-size:9px;color:var(--muted2)">✎</span></div>
         <div style="font-size:11px;color:var(--muted2)">${cat.items.length} פריטים</div>
         <div style="color:var(--muted2);font-size:14px;transition:transform .2s;${isOpen?'transform:rotate(90deg)':''}">›</div>
@@ -2736,6 +2768,60 @@ function renderSmartListEditor(name) {
 
 let _catLongPressTimer = null;
 let _catTouchMoved = false;
+
+// ── גרירת קטגוריות ברשימות ──
+let _catDragIdx = -1;
+let _catDragList = '';
+let _catDragActive = false;
+
+function startCatDrag(e, listName, ci) {
+  e.stopPropagation();
+  _catDragIdx = ci;
+  _catDragList = listName;
+  _catDragActive = false;
+  setTimeout(() => {
+    _catDragActive = true;
+    const rows = document.querySelectorAll('.smart-cat-row');
+    rows[ci]?.style && (rows[ci].style.opacity = '0.5');
+    navigator.vibrate?.(30);
+  }, 200);
+}
+
+function moveCatDrag(e, listName) {
+  if(!_catDragActive) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const y = e.touches[0].clientY;
+  const rows = [...document.querySelectorAll('.smart-cat-row')];
+  rows.forEach(r => r.style.outline = '');
+  const target = rows.find((r,i) => {
+    if(i === _catDragIdx) return false;
+    const rect = r.getBoundingClientRect();
+    return y >= rect.top && y <= rect.bottom;
+  });
+  if(target) target.style.outline = '2px solid var(--c1)';
+}
+
+function endCatDrag(e, listName) {
+  e.stopPropagation();
+  document.querySelectorAll('.smart-cat-row').forEach(r => { r.style.outline = ''; r.style.opacity = ''; });
+  if(!_catDragActive) { _catDragActive = false; return; }
+  _catDragActive = false;
+  const y = e.changedTouches[0].clientY;
+  const rows = [...document.querySelectorAll('.smart-cat-row')];
+  const targetIdx = rows.findIndex((r,i) => {
+    if(i === _catDragIdx) return false;
+    const rect = r.getBoundingClientRect();
+    return y >= rect.top && y <= rect.bottom;
+  });
+  if(targetIdx >= 0 && targetIdx !== _catDragIdx) {
+    const cats = smart_lists[listName].cats;
+    const [moved] = cats.splice(_catDragIdx, 1);
+    cats.splice(targetIdx, 0, moved);
+    saveSmartLists();
+    renderSmartListEditor(listName);
+  }
+}
 
 function handleCatHeaderTouch(e, listName, ci) {
   _catTouchMoved = false;
