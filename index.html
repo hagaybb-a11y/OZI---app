@@ -928,6 +928,8 @@ projects = projects.map(p => ({...p, subcat: p.subcat || 'פרויקטים'}));
 projects.forEach(p => { if(!p.subcat || !p.subcat.includes('פרויקט')) p.subcat = 'פרויקטים'; });
 let nextProjectId = 'p'+(projects.length+10);
 let editMode = false;
+let projExpandedDoms = new Set(); // תחומים פתוחים בלשונית פרויקטים
+let projExpandedDetails = new Set(); // פרויקטים פתוחים
 let locationFilter = {}; // {domainId+subcat: {home:true, out:true}}
 let nextId = Math.max(...tasks.map(t=>t.id)) + 1;
 // שמור מיגרציה
@@ -2331,6 +2333,20 @@ function renderProjects() {
   if(!projects.filter(p=>!p.done).length) html += `<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">${I.target}</div><div>אין פרויקטים פעילים</div></div>`;
   html += `<div style="height:30px"></div>`;
   el.innerHTML = html;
+
+  // שחזר מצב פתוח/סגור
+  projExpandedDoms.forEach(domId => {
+    const list = document.getElementById('proj-list-'+domId);
+    const chevron = document.getElementById('proj-chevron-'+domId);
+    if(list) { list.style.display='block'; }
+    if(chevron) chevron.style.transform='rotate(180deg)';
+  });
+  projExpandedDetails.forEach(pid => {
+    const detail = document.getElementById('proj-detail-'+pid);
+    const chevron = document.getElementById('proj-detail-chevron-'+pid);
+    if(detail) { detail.style.display='block'; }
+    if(chevron) chevron.style.transform='rotate(180deg)';
+  });
 }
 
 function toggleRoutineSlot(from) {
@@ -2352,7 +2368,7 @@ function collapseAllRoutines() {
 }
 
 function expandAllProjects() {
-  document.querySelectorAll('[id^="proj-list-"]').forEach(el=>el.style.display='block');
+  document.querySelectorAll('[id^="proj-list-"]').forEach(el => { el.style.display='block'; projExpandedDoms.add(el.id.replace('proj-list-','')); });
   document.querySelectorAll('[id^="proj-chevron-"]').forEach(el=>el.style.transform='rotate(180deg)');
 }
 
@@ -2373,6 +2389,7 @@ function toggleProjDomain(domId) {
   const isOpen = list.style.display !== 'none';
   list.style.display = isOpen ? 'none' : 'block';
   chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  if(isOpen) projExpandedDoms.delete(domId); else projExpandedDoms.add(domId);
 }
 
 function toggleProjDetail(pid) {
@@ -2381,6 +2398,7 @@ function toggleProjDetail(pid) {
   const isOpen = detail.style.display !== 'none';
   detail.style.display = isOpen ? 'none' : 'block';
   chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  if(isOpen) projExpandedDetails.delete(pid); else projExpandedDetails.add(pid);
 }
 
 function renderDashInOverlay() {
@@ -4558,7 +4576,9 @@ function updateProjectSubcatSelect(preselect='') {
   const domId = document.getElementById('projectDomainSelect').value;
   const dom = domains.find(d=>d.id===domId);
   const sel = document.getElementById('projectSubcatSelect');
-  sel.innerHTML = (dom?.subcats||[]).map(s=>`<option value="${s}" ${s===preselect?'selected':''}>${s}</option>`).join('');
+  // ברירת מחדל: פרויקטים
+  const defaultSub = preselect || dom?.subcats?.find(s=>s.includes('פרויקט')) || dom?.subcats?.[0] || '';
+  sel.innerHTML = (dom?.subcats||[]).map(s=>`<option value="${s}" ${s===defaultSub?'selected':''}>${s}</option>`).join('');
 }
 
 function saveProject() {
@@ -4580,13 +4600,31 @@ function deleteProjectDirect(pid) {
   const p = projects.find(p=>p.id===pid);
   if(!p) return;
   if(!confirm(`למחוק את הפרויקט "${p.name}"?\nהמשימות המשויכות לא יימחקו.`)) return;
+  // שמור מצב פרישה
+  const expandState = {};
+  document.querySelectorAll('[id^="proj-list-"]').forEach(el => {
+    expandState[el.id] = el.style.display;
+  });
   projects = projects.filter(pr=>pr.id!==pid);
-  // נתק משימות מהפרויקט
   tasks.forEach(t => { if(t.projectId===pid) delete t.projectId; });
   save();
   closeProjectDetail();
   renderDash();
-  if(document.querySelector('#panel-projects.on')) renderProjects();
+  if(document.querySelector('#panel-projects.on')) {
+    renderProjects();
+    // שחזר מצב פרישה
+    setTimeout(() => {
+      Object.entries(expandState).forEach(([id, display]) => {
+        const el = document.getElementById(id);
+        if(el) {
+          el.style.display = display;
+          const domId = id.replace('proj-list-','');
+          const chev = document.getElementById(`proj-chevron-${domId}`);
+          if(chev) chev.style.transform = display==='block' ? 'rotate(180deg)' : '';
+        }
+      });
+    }, 50);
+  }
 }
 
 function deleteProject() {
