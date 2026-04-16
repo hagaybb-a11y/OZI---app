@@ -1145,10 +1145,9 @@ function loadNoteToEditor(id) {
   textArea.value = note.textContent || '';
   // גדל אוטומטית לפי תוכן
   const resizeTA = () => { textArea.style.height='auto'; textArea.style.height = textArea.scrollHeight + 'px'; };
-  textArea.addEventListener('input', resizeTA);
-  setTimeout(resizeTA, 30);
-  textArea.oninput = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
-  textArea.onblur = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
+  const saveTA = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); resizeTA(); };
+  textArea.addEventListener('input', saveTA);
+  textArea.addEventListener('blur', saveTA);
   textArea.onkeydown = (e) => {
     if(e.key==='Enter') {
       const note2 = notes_data.find(n=>n.id===id);
@@ -1163,9 +1162,10 @@ function loadNoteToEditor(id) {
         saveCheckItems(id);
         return;
       }
+      // מספור אוטומטי
       const val = textArea.value;
       const pos = textArea.selectionStart;
-      const lineStart = val.lastIndexOf('\n',pos-1)+1;
+      const lineStart = val.lastIndexOf('\n', pos-1)+1;
       const line = val.substring(lineStart, pos);
       const numMatch = line.match(/^(\d+)\.\s/);
       if(numMatch) {
@@ -1174,10 +1174,11 @@ function loadNoteToEditor(id) {
         const ins = '\n'+next+'. ';
         textArea.value = val.substring(0,pos)+ins+val.substring(pos);
         textArea.selectionStart = textArea.selectionEnd = pos+ins.length;
-        note.textContent = textArea.value; note.updated=Date.now(); saveNotes();
+        saveTA();
       }
     }
   };
+  setTimeout(resizeTA, 30);
   el.appendChild(textArea);
 
   // טען צ'קבוקסים
@@ -1189,7 +1190,7 @@ function loadNoteToEditor(id) {
     textArea.style.display = 'none';
   }
 
-  if(checks.length===0 && !note.textContent) textArea.focus();
+  if(checks.length===0 && !note.textContent) setTimeout(()=>textArea.focus(), 50);
 }
 
 function createCheckItem(text, done, noteId) {
@@ -1593,7 +1594,7 @@ function handleNoteKeydown(e) {
 }
 
 function insertFormat(type) {
-  const ta = document.getElementById('noteContent');
+  const ta = document.getElementById('noteTextArea');
   if(!ta) return;
   const start = ta.selectionStart;
   const val = ta.value;
