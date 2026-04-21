@@ -1349,21 +1349,41 @@ function convertToChecklist() {
 
   const el = document.getElementById('noteEditor');
 
-  // אם יש טקסט — המר כל שורה לצ'קבוקס
   if(ta && ta.value.trim()) {
     const lines = ta.value.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
-    // נקה textarea
-    ta.value = '';
-    note.textContent = '';
-    ta.style.display = 'none';
-    // הוסף צ'קבוקס לכל שורה
+    const numbered = []; // שורות ממוספרות — נשארות בטקסט
+    const toCheck = [];  // שורות רגילות — הופכות לצ'ק
+
     lines.forEach(line => {
+      if(/^\d+\.\s/.test(line)) numbered.push(line);
+      else toCheck.push(line);
+    });
+
+    // עדכן textarea עם שורות ממוספרות בלבד
+    ta.value = numbered.join('\n');
+    note.textContent = ta.value;
+    if(ta.value.trim()) {
+      ta.style.display = '';
+    } else {
+      ta.style.display = 'none';
+    }
+
+    // הוסף צ'קבוקס לשורות הרגילות
+    toCheck.forEach(line => {
       const item = createCheckItem(line, false, noteId);
       el.appendChild(item);
     });
+
+    if(toCheck.length === 0) {
+      // כולן ממוספרות — הוסף שורה ריקה
+      const item = createCheckItem('', false, noteId);
+      el.appendChild(item);
+      if(!ta.value.trim()) ta.style.display = 'none';
+      setTimeout(()=>item.querySelector('textarea,input')?.focus(), 30);
+    }
+
     saveCheckItems(noteId);
   } else {
-    // אין טקסט — פשוט הוסף שורה ריקה
     insertFormatAndFocus('☐ ');
   }
 }
