@@ -928,8 +928,6 @@ projects = projects.map(p => ({...p, subcat: p.subcat || 'פרויקטים'}));
 projects.forEach(p => { if(!p.subcat || !p.subcat.includes('פרויקט')) p.subcat = 'פרויקטים'; });
 let nextProjectId = 'p'+(projects.length+10);
 let editMode = false;
-let projExpandedDoms = new Set(); // תחומים פתוחים בלשונית פרויקטים
-let projExpandedDetails = new Set(); // פרויקטים פתוחים
 let locationFilter = {}; // {domainId+subcat: {home:true, out:true}}
 let nextId = Math.max(...tasks.map(t=>t.id)) + 1;
 // שמור מיגרציה
@@ -1145,9 +1143,10 @@ function loadNoteToEditor(id) {
   textArea.value = note.textContent || '';
   // גדל אוטומטית לפי תוכן
   const resizeTA = () => { textArea.style.height='auto'; textArea.style.height = textArea.scrollHeight + 'px'; };
-  const saveTA = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); resizeTA(); };
-  textArea.addEventListener('input', saveTA);
-  textArea.addEventListener('blur', saveTA);
+  textArea.addEventListener('input', resizeTA);
+  setTimeout(resizeTA, 30);
+  textArea.oninput = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
+  textArea.onblur = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
   textArea.onkeydown = (e) => {
     if(e.key==='Enter') {
       const note2 = notes_data.find(n=>n.id===id);
@@ -1162,10 +1161,9 @@ function loadNoteToEditor(id) {
         saveCheckItems(id);
         return;
       }
-      // מספור אוטומטי
       const val = textArea.value;
       const pos = textArea.selectionStart;
-      const lineStart = val.lastIndexOf('\n', pos-1)+1;
+      const lineStart = val.lastIndexOf('\n',pos-1)+1;
       const line = val.substring(lineStart, pos);
       const numMatch = line.match(/^(\d+)\.\s/);
       if(numMatch) {
@@ -1174,11 +1172,10 @@ function loadNoteToEditor(id) {
         const ins = '\n'+next+'. ';
         textArea.value = val.substring(0,pos)+ins+val.substring(pos);
         textArea.selectionStart = textArea.selectionEnd = pos+ins.length;
-        saveTA();
+        note.textContent = textArea.value; note.updated=Date.now(); saveNotes();
       }
     }
   };
-  setTimeout(resizeTA, 30);
   el.appendChild(textArea);
 
   // טען צ'קבוקסים
@@ -1190,7 +1187,7 @@ function loadNoteToEditor(id) {
     textArea.style.display = 'none';
   }
 
-  if(checks.length===0 && !note.textContent) setTimeout(()=>textArea.focus(), 50);
+  if(checks.length===0 && !note.textContent) textArea.focus();
 }
 
 function createCheckItem(text, done, noteId) {
@@ -1349,41 +1346,21 @@ function convertToChecklist() {
 
   const el = document.getElementById('noteEditor');
 
+  // אם יש טקסט — המר כל שורה לצ'קבוקס
   if(ta && ta.value.trim()) {
     const lines = ta.value.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
-    const numbered = []; // שורות ממוספרות — נשארות בטקסט
-    const toCheck = [];  // שורות רגילות — הופכות לצ'ק
-
+    // נקה textarea
+    ta.value = '';
+    note.textContent = '';
+    ta.style.display = 'none';
+    // הוסף צ'קבוקס לכל שורה
     lines.forEach(line => {
-      if(/^\d+\.\s/.test(line)) numbered.push(line);
-      else toCheck.push(line);
-    });
-
-    // עדכן textarea עם שורות ממוספרות בלבד
-    ta.value = numbered.join('\n');
-    note.textContent = ta.value;
-    if(ta.value.trim()) {
-      ta.style.display = '';
-    } else {
-      ta.style.display = 'none';
-    }
-
-    // הוסף צ'קבוקס לשורות הרגילות
-    toCheck.forEach(line => {
       const item = createCheckItem(line, false, noteId);
       el.appendChild(item);
     });
-
-    if(toCheck.length === 0) {
-      // כולן ממוספרות — הוסף שורה ריקה
-      const item = createCheckItem('', false, noteId);
-      el.appendChild(item);
-      if(!ta.value.trim()) ta.style.display = 'none';
-      setTimeout(()=>item.querySelector('textarea,input')?.focus(), 30);
-    }
-
     saveCheckItems(noteId);
   } else {
+    // אין טקסט — פשוט הוסף שורה ריקה
     insertFormatAndFocus('☐ ');
   }
 }
@@ -1614,7 +1591,7 @@ function handleNoteKeydown(e) {
 }
 
 function insertFormat(type) {
-  const ta = document.getElementById('noteTextArea');
+  const ta = document.getElementById('noteContent');
   if(!ta) return;
   const start = ta.selectionStart;
   const val = ta.value;
@@ -2354,20 +2331,6 @@ function renderProjects() {
   if(!projects.filter(p=>!p.done).length) html += `<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">${I.target}</div><div>אין פרויקטים פעילים</div></div>`;
   html += `<div style="height:30px"></div>`;
   el.innerHTML = html;
-
-  // שחזר מצב פתוח/סגור
-  projExpandedDoms.forEach(domId => {
-    const list = document.getElementById('proj-list-'+domId);
-    const chevron = document.getElementById('proj-chevron-'+domId);
-    if(list) { list.style.display='block'; }
-    if(chevron) chevron.style.transform='rotate(180deg)';
-  });
-  projExpandedDetails.forEach(pid => {
-    const detail = document.getElementById('proj-detail-'+pid);
-    const chevron = document.getElementById('proj-detail-chevron-'+pid);
-    if(detail) { detail.style.display='block'; }
-    if(chevron) chevron.style.transform='rotate(180deg)';
-  });
 }
 
 function toggleRoutineSlot(from) {
@@ -2389,7 +2352,7 @@ function collapseAllRoutines() {
 }
 
 function expandAllProjects() {
-  document.querySelectorAll('[id^="proj-list-"]').forEach(el => { el.style.display='block'; projExpandedDoms.add(el.id.replace('proj-list-','')); });
+  document.querySelectorAll('[id^="proj-list-"]').forEach(el=>el.style.display='block');
   document.querySelectorAll('[id^="proj-chevron-"]').forEach(el=>el.style.transform='rotate(180deg)');
 }
 
@@ -2410,7 +2373,6 @@ function toggleProjDomain(domId) {
   const isOpen = list.style.display !== 'none';
   list.style.display = isOpen ? 'none' : 'block';
   chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
-  if(isOpen) projExpandedDoms.delete(domId); else projExpandedDoms.add(domId);
 }
 
 function toggleProjDetail(pid) {
@@ -2419,7 +2381,6 @@ function toggleProjDetail(pid) {
   const isOpen = detail.style.display !== 'none';
   detail.style.display = isOpen ? 'none' : 'block';
   chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
-  if(isOpen) projExpandedDetails.delete(pid); else projExpandedDetails.add(pid);
 }
 
 function renderDashInOverlay() {
@@ -3114,17 +3075,32 @@ function toggleTaskInDash(id) {
   save();
   showToast(`✅ "${t.name.slice(0,20)}${t.name.length>20?'…':''}" הועבר לארכיון`, id);
   updateArchiveCount();
-  // מצא והסר רק את שורת המשימה
+
+  // אם שייכת לפרויקט — בדוק השלמה
+  if(t.projectId) {
+    const proj = projects.find(p=>p.id===t.projectId);
+    if(proj) {
+      const remaining = tasks.filter(t2=>t2.projectId===t.projectId&&!t2.done);
+      if(remaining.length === 0) {
+        setTimeout(() => {
+          if(confirm(`כל המשימות בפרויקט "${proj.name}" הושלמו! לסמן כהושלם?`)) {
+            proj.done = true; save();
+          }
+          renderDash();
+        }, 400);
+        return;
+      }
+    }
+    renderDash();
+    return;
+  }
+
+  // הסר שורת משימה
   const row = document.querySelector(`[data-dash-task="${id}"]`);
   if(row) row.remove();
-  // עדכן ספירת המשימות בתת-הקטגוריה
   const countEl = document.querySelector(`[data-dash-count-task="${id}"]`);
-  if(countEl) {
-    const cur = parseInt(countEl.textContent||'0');
-    if(cur > 0) countEl.textContent = cur - 1;
-  }
+  if(countEl) { const cur = parseInt(countEl.textContent||'0'); if(cur>0) countEl.textContent=cur-1; }
 }
-
 // ── TASK TOGGLE ──
 function toggleTask(id) {
   const t = tasks.find(t=>t.id===id);
@@ -4597,9 +4573,7 @@ function updateProjectSubcatSelect(preselect='') {
   const domId = document.getElementById('projectDomainSelect').value;
   const dom = domains.find(d=>d.id===domId);
   const sel = document.getElementById('projectSubcatSelect');
-  // ברירת מחדל: פרויקטים
-  const defaultSub = preselect || dom?.subcats?.find(s=>s.includes('פרויקט')) || dom?.subcats?.[0] || '';
-  sel.innerHTML = (dom?.subcats||[]).map(s=>`<option value="${s}" ${s===defaultSub?'selected':''}>${s}</option>`).join('');
+  sel.innerHTML = (dom?.subcats||[]).map(s=>`<option value="${s}" ${s===preselect?'selected':''}>${s}</option>`).join('');
 }
 
 function saveProject() {
@@ -4621,31 +4595,13 @@ function deleteProjectDirect(pid) {
   const p = projects.find(p=>p.id===pid);
   if(!p) return;
   if(!confirm(`למחוק את הפרויקט "${p.name}"?\nהמשימות המשויכות לא יימחקו.`)) return;
-  // שמור מצב פרישה
-  const expandState = {};
-  document.querySelectorAll('[id^="proj-list-"]').forEach(el => {
-    expandState[el.id] = el.style.display;
-  });
   projects = projects.filter(pr=>pr.id!==pid);
+  // נתק משימות מהפרויקט
   tasks.forEach(t => { if(t.projectId===pid) delete t.projectId; });
   save();
   closeProjectDetail();
   renderDash();
-  if(document.querySelector('#panel-projects.on')) {
-    renderProjects();
-    // שחזר מצב פרישה
-    setTimeout(() => {
-      Object.entries(expandState).forEach(([id, display]) => {
-        const el = document.getElementById(id);
-        if(el) {
-          el.style.display = display;
-          const domId = id.replace('proj-list-','');
-          const chev = document.getElementById(`proj-chevron-${domId}`);
-          if(chev) chev.style.transform = display==='block' ? 'rotate(180deg)' : '';
-        }
-      });
-    }, 50);
-  }
+  if(document.querySelector('#panel-projects.on')) renderProjects();
 }
 
 function deleteProject() {
