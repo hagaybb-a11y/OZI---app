@@ -1104,7 +1104,7 @@ function openEditNote(id) {
     <input id="noteTitle" class="modal-input" placeholder="כותרת הפתק..." value="${note.title||''}"
       oninput="updateNote('${id}')" style="font-size:15px;font-weight:700;margin-bottom:10px">
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button onclick="insertFormat('numbered')" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
+      <button onclick="insertNumberedFormat()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
         <span style="background:var(--c1);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">1</span> ממוספר
       </button>
       <button ontouchend="event.preventDefault();convertToChecklist()" onclick="convertToChecklist()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
@@ -1150,31 +1150,22 @@ function loadNoteToEditor(id) {
   textArea.onblur = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
   textArea.onkeydown = (e) => {
     if(e.key==='Enter') {
-      const note2 = notes_data.find(n=>n.id===id);
-      // אם יש כבר צ'קליסט — Enter מוסיף שורת צ'ק חדשה
-      if(note2?.checks?.length > 0) {
-        e.preventDefault();
-        const el2 = document.getElementById('noteEditor');
-        const newItem = createCheckItem('', false, id);
-        el2.appendChild(newItem);
-        if(!textArea.value.trim()) textArea.style.display = 'none';
-        setTimeout(()=>newItem.querySelector('textarea,input')?.focus(), 30);
-        saveCheckItems(id);
-        return;
-      }
       const val = textArea.value;
       const pos = textArea.selectionStart;
       const lineStart = val.lastIndexOf('\n',pos-1)+1;
       const line = val.substring(lineStart, pos);
       const numMatch = line.match(/^(\d+)\.\s/);
       if(numMatch) {
+        // Enter בשורה ממוספרת — ממשיך את המספור אוטומטית
         e.preventDefault();
         const next = parseInt(numMatch[1])+1;
         const ins = '\n'+next+'. ';
         textArea.value = val.substring(0,pos)+ins+val.substring(pos);
         textArea.selectionStart = textArea.selectionEnd = pos+ins.length;
         note.textContent = textArea.value; note.updated=Date.now(); saveNotes();
+        const resizeEv = new Event('input'); textArea.dispatchEvent(resizeEv);
       }
+      // אחרת — ירידת שורה רגילה (ברירת מחדל)
     }
   };
   el.appendChild(textArea);
@@ -1344,24 +1335,50 @@ function convertToChecklist() {
   const noteId = editingNoteId;
   const note = notes_data.find(n=>n.id===noteId);
   if(!note) return;
-
   const el = document.getElementById('noteEditor');
 
-  // אם יש טקסט — המר כל שורה לצ'קבוקס
   if(ta && ta.value.trim()) {
-    const lines = ta.value.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
-    // נקה textarea
-    ta.value = '';
-    note.textContent = '';
-    ta.style.display = 'none';
-    // הוסף צ'קבוקס לכל שורה
-    lines.forEach(line => {
-      const item = createCheckItem(line, false, noteId);
-      el.appendChild(item);
-    });
-    saveCheckItems(noteId);
+    const val = ta.value;
+    const selStart = ta.selectionStart;
+    const selEnd = ta.selectionEnd;
+    const hasSelection = selStart !== selEnd;
+
+    if(hasSelection) {
+      // המר רק שורות מסומנות לצ'קבוקסים
+      const lineStart = val.lastIndexOf('\n', selStart-1)+1;
+      const lastLineEnd = val.indexOf('\n', selEnd-1);
+      const lineEnd = lastLineEnd === -1 ? val.length : lastLineEnd;
+
+      const before = val.substring(0, lineStart);
+      const selectedBlock = val.substring(lineStart, lineEnd);
+      const after = val.substring(lineEnd);
+
+      const lines = selectedBlock.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+      // הסר שורות שהומרו מה-textarea
+      const newVal = (before + (before && after.trimStart() ? '\n' : '') + after.trimStart()).trimEnd();
+      ta.value = newVal;
+      note.textContent = newVal;
+      if(!newVal) ta.style.display = 'none';
+
+      lines.forEach(line => {
+        const clean = line.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '');
+        el.appendChild(createCheckItem(clean, false, noteId));
+      });
+      saveCheckItems(noteId);
+    } else {
+      // אין סימון — המר הכל
+      const lines = val.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+      ta.value = '';
+      note.textContent = '';
+      ta.style.display = 'none';
+      lines.forEach(line => {
+        const clean = line.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '');
+        el.appendChild(createCheckItem(clean, false, noteId));
+      });
+      saveCheckItems(noteId);
+    }
   } else {
-    // אין טקסט — פשוט הוסף שורה ריקה
+    // אין טקסט — הוסף שורה ריקה
     insertFormatAndFocus('☐ ');
   }
 }
@@ -1592,37 +1609,58 @@ function handleNoteKeydown(e) {
 }
 
 function insertFormat(type) {
+  // This function is kept for legacy use; note editor uses insertNumberedFormat
   const ta = document.getElementById('noteContent');
   if(!ta) return;
   const start = ta.selectionStart;
   const val = ta.value;
   const lineStart = val.lastIndexOf('\n', start-1)+1;
-  const lineEnd = val.indexOf('\n', start);
-  const end = lineEnd===-1 ? val.length : lineEnd;
-  const line = val.substring(lineStart, end);
-
-  let insert = '';
-  if(type === 'numbered') {
-    // ספור כמה שורות ממוספרות כבר יש
-    const lines = val.substring(0, lineStart).split('\n');
-    const lastNum = lines.reduce((n,l)=>{ const m=l.match(/^(\d+)\./); return m?parseInt(m[1]):n; }, 0);
-    insert = `${lastNum+1}. `;
-  } else if(type === '---') {
-    insert = '\n---\n';
-    ta.value = val.substring(0,start)+insert+val.substring(start);
-    ta.selectionStart = ta.selectionEnd = start+insert.length;
-    ta.focus();
-    updateNote(editingNoteId);
-    return;
-  } else {
-    insert = type;
-  }
-
-  // הוסף בתחילת השורה
+  const insert = type === 'numbered' ? '1. ' : type === '---' ? '\n---\n' : type;
   ta.value = val.substring(0, lineStart) + insert + val.substring(lineStart);
   ta.selectionStart = ta.selectionEnd = lineStart + insert.length + (start - lineStart);
   ta.focus();
   updateNote(editingNoteId);
+}
+
+function insertNumberedFormat() {
+  const ta = document.getElementById('noteTextArea');
+  if(!ta) return;
+  const val = ta.value;
+  const selStart = ta.selectionStart;
+  const selEnd = ta.selectionEnd;
+  const hasSelection = selStart !== selEnd;
+
+  let lineStart, lineEnd;
+  if(hasSelection) {
+    lineStart = val.lastIndexOf('\n', selStart-1)+1;
+    const lastLineEnd = val.indexOf('\n', selEnd-1);
+    lineEnd = lastLineEnd === -1 ? val.length : lastLineEnd;
+  } else {
+    lineStart = val.lastIndexOf('\n', selStart-1)+1;
+    const end = val.indexOf('\n', selStart);
+    lineEnd = end === -1 ? val.length : end;
+  }
+
+  const before = val.substring(0, lineStart);
+  const selectedBlock = val.substring(lineStart, lineEnd);
+  const after = val.substring(lineEnd);
+
+  // ספור שורות ממוספרות לפני הבלוק
+  const beforeLines = before.split('\n');
+  let lineNum = beforeLines.reduce((n,l)=>{ const m=l.match(/^(\d+)\./); return m?parseInt(m[1]):n; }, 0) + 1;
+
+  const numbered = selectedBlock.split('\n').map(line => {
+    const clean = line.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '');
+    return `${lineNum++}. ${clean}`;
+  }).join('\n');
+
+  ta.value = before + numbered + after;
+  ta.selectionStart = lineStart;
+  ta.selectionEnd = lineStart + numbered.length;
+  ta.focus();
+  const note = notes_data.find(n=>n.id===editingNoteId);
+  if(note) { note.textContent = ta.value; note.updated=Date.now(); saveNotes(); }
+  const ev = new Event('input'); ta.dispatchEvent(ev);
 }
 
 function updateNote(id) {
