@@ -4086,6 +4086,7 @@ function saveTask() {
   const cur = document.querySelector('.panel.on');
   if(cur?.id==='panel-tasks') renderTasks();
   else if(cur?.id==='panel-dash') renderDash();
+  else if(cur?.id==='panel-projects') { renderProjects(); if(pid) openProjectDetail(pid); }
 }
 
 // ── CHAT ──
