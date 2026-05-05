@@ -1044,30 +1044,25 @@ function renderNotepadList() {
   const el = document.getElementById('notepadMain');
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <div style="font-size:16px;font-weight:800">📝 פנקס</div>
-    <div style="display:flex;gap:6px">
-      <button onclick="showChecklistTemplates()" style="background:var(--s2);border:1.5px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px;font-family:inherit">📋 רשימות</button>
-      <button onclick="openNewNote()" style="background:var(--c1);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;padding:5px 12px;font-family:inherit">+ פתק חדש</button>
-      <button onclick="document.getElementById('notepadOverlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
-    </div>
-  </div>`;
+    <button onclick="document.getElementById('notepadOverlay').classList.remove('open')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
+  </div>
+  <button onclick="openNewNote()" style="width:100%;padding:12px;background:var(--c1);border:none;border-radius:var(--radius-sm);color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px">+ פתק חדש</button>`;
   if(!notes_data.length) {
-    html += `<div style="text-align:center;padding:40px;color:var(--muted)">
-      <div style="font-size:36px;margin-bottom:8px">📝</div>
-      <div>אין פתקים עדיין</div>
-      <div style="font-size:11px;margin-top:6px">לחץ + פתק חדש להתחיל</div>
-    </div>`;
+    html += `<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:36px;margin-bottom:8px">📝</div><div>אין פתקים עדיין</div></div>`;
   } else {
     notes_data.slice().reverse().forEach(note => {
       const date = new Date(note.updated).toLocaleDateString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
-      const preview = note.textContent?.trim() || (note.checks?.length ? `${note.checks.length} פריטים` : '') || note.content?.trim() || '';
-      const checksCount = note.checks?.filter(c=>c.done).length || 0;
-      const checksTotal = note.checks?.length || 0;
+      const raw = note.content || '';
+      const lines = raw.split('\n').filter(l=>l.trim());
+      const checks = lines.filter(l=>l.startsWith('[ ] ')||l.startsWith('[x] '));
+      const doneCount = lines.filter(l=>l.startsWith('[x] ')).length;
+      const preview = lines.find(l=>!l.startsWith('[ ] ')&&!l.startsWith('[x] '))||checks[0]?.slice(4)||'';
       html += `<div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="openEditNote('${note.id}')">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:700">${note.title||'ללא כותרת'}</div>
-            ${preview?`<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;max-width:180px">${preview}</div>`:''}
-            <div style="font-size:10px;color:var(--muted2);margin-top:3px">${date}${checksTotal?` · ✅ ${checksCount}/${checksTotal}`:''}</div>
+            ${preview?`<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">${preview.replace(/^\d+\.\s*/,'')}</div>`:''}
+            <div style="font-size:10px;color:var(--muted2);margin-top:3px">${date}${checks.length?` · ✅ ${doneCount}/${checks.length}`:''}</div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;margin-right:8px">
             <button onclick="event.stopPropagation();copyNote('${note.id}')" style="background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;color:var(--muted)">📋</button>
@@ -1087,590 +1082,198 @@ function openNewNote() {
   openEditNote(id);
 }
 
+// ── NOTE EDITOR ──
+// פורמט אחסון: שורות עם קידומות
+//   [ ] text  = צ'קבוקס פתוח
+//   [x] text  = צ'קבוקס סגור
+//   1. text   = ממוספר
+//   text      = טקסט חופשי
+
+
+
+function migrateNote(note) {
+  // מיגרציה מפורמט ישן (textContent + checks) לפורמט חדש (content)
+  if(note.content !== undefined && note.content !== null) return note.content;
+  let lines = [];
+  if(note.textContent) lines = note.textContent.split('\n');
+  if(note.checks && note.checks.length) {
+    note.checks.forEach(c => lines.push((c.done?'[x] ':'[ ] ') + c.text));
+  }
+  const migrated = lines.join('\n');
+  note.content = migrated;
+  delete note.textContent; delete note.checks;
+  saveNotes();
+  return migrated;
+}
+
 function openEditNote(id) {
   const note = notes_data.find(n=>n.id===id);
   if(!note) return;
   editingNoteId = id;
-  noteViewMode = false; // תמיד מתחיל במצב עריכה
+  const content = migrateNote(note);
   const el = document.getElementById('notepadMain');
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <button onclick="renderNotepadList()" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;cursor:pointer;flex-shrink:0">‹</button>
-      <button onclick="saveNoteFromEditor('${id}');renderNotepadList()" style="flex:1;background:var(--s2);border:1.5px solid var(--c1);border-radius:var(--radius-sm);padding:8px 4px;font-size:11px;font-weight:600;color:var(--c1);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">שמור</button>
-      <button onclick="copyNote('${id}')" style="flex:1;background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 4px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">העתק</button>
-      <button onclick="addNoteToTasks('${id}')" style="flex:1;background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 4px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">למשימות</button>
-      <button onclick="deleteNoteFromEdit('${id}')" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--red);cursor:pointer;font-size:15px;flex-shrink:0">🗑️</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button onclick="saveNoteFromEditor();renderNotepadList()" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;cursor:pointer;flex-shrink:0">‹</button>
+      <input id="noteTitle" class="modal-input" placeholder="כותרת הפתק..." value="${(note.title||'').replace(/"/g,'&quot;')}"
+        oninput="saveNoteFromEditor()" style="flex:1;font-size:15px;font-weight:700">
+      <button onclick="copyNote('${id}')" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;cursor:pointer;flex-shrink:0">📋</button>
+      <button onclick="deleteNoteFromEdit('${id}')" style="background:var(--s2);border:1.5px solid var(--border);border-radius:var(--radius-sm);width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--red);cursor:pointer;font-size:14px;flex-shrink:0">🗑️</button>
     </div>
-    <input id="noteTitle" class="modal-input" placeholder="כותרת הפתק..." value="${note.title||''}"
-      oninput="updateNote('${id}')" style="font-size:15px;font-weight:700;margin-bottom:10px">
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button onclick="insertNumberedFormat()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button onclick="formatSelected('numbered')" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:9px 6px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px">
         <span style="background:var(--c1);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">1</span> ממוספר
       </button>
-      <button ontouchend="event.preventDefault();convertToChecklist()" onclick="convertToChecklist()" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600">
-        <span style="font-size:16px">☐</span> צ'קליסט
+      <button onclick="formatSelected('check')" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:9px 6px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px">
+        <span style="font-size:16px">☐</span> צ'קבוקס
+      </button>
+      <button onclick="formatSelected('plain')" style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:9px 6px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);font-weight:600">
+        Aa טקסט
       </button>
     </div>
-    <div id="noteEditor"
-      oninput="onNoteEditorInput('${id}')"
-      onkeydown="handleEditorKeydown(event,'${id}')"
-      onclick="handleEditorClick(event)"
-      style="min-height:120px;padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:14px;line-height:1.9;font-family:inherit;direction:rtl;text-align:right;cursor:text"></div>
-    <style>
-      #noteEditor:empty:before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
-      .note-check-row{display:flex;align-items:center;gap:10px;margin:2px 0}
-      .note-check-box{width:26px;height:26px;border-radius:6px;border:2px solid var(--border2);background:var(--s1);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;font-weight:800;transition:all .2s}
-      .note-check-box.checked{background:#3ecf8e;border-color:#3ecf8e}
-      .note-check-text.checked{text-decoration:line-through;color:var(--muted)}
-    </style>
+    <textarea id="noteTA" placeholder="כתוב כאן..."
+      style="width:100%;min-height:160px;padding:12px;background:var(--s2);border:1px solid var(--border);border-radius:12px;font-size:14px;line-height:1.9;font-family:inherit;direction:rtl;text-align:right;color:var(--text);resize:none;outline:none;box-sizing:border-box;overflow:hidden"
+      oninput="onNoteInput()" onkeydown="onNoteKeydown(event)">${escHtml(content)}</textarea>
+    <div id="noteChecks" style="margin-top:8px"></div>
     <div style="font-size:10px;color:var(--muted2);margin-top:8px;text-align:center">נשמר אוטומטית</div>`;
   setTimeout(()=>{
-    loadNoteToEditor(id);
-    document.getElementById('noteEditor')?.focus();
+    const ta = document.getElementById('noteTA');
+    if(ta){ autoResizeTA(ta); ta.focus(); }
+    renderNoteChecks();
   }, 50);
 }
 
-function loadNoteToEditor(id) {
-  const note = notes_data.find(n=>n.id===id);
-  const el = document.getElementById('noteEditor');
-  if(!el||!note) return;
-  el.innerHTML = '';
-
-  // אזור טקסט חופשי
-  const textArea = document.createElement('textarea');
-  textArea.id = 'noteTextArea';
-  textArea.placeholder = 'כתוב כאן...';
-  textArea.style.cssText = 'width:100%;border:none;background:transparent;outline:none;resize:none;font-size:14px;line-height:1.9;font-family:inherit;direction:rtl;text-align:right;color:var(--text);min-height:80px;overflow:hidden';
-  textArea.value = note.textContent || '';
-  // גדל אוטומטית לפי תוכן
-  const resizeTA = () => { textArea.style.height='auto'; textArea.style.height = textArea.scrollHeight + 'px'; };
-  textArea.addEventListener('input', resizeTA);
-  setTimeout(resizeTA, 30);
-  textArea.oninput = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
-  textArea.onblur = () => { note.textContent = textArea.value; note.content = textArea.value; note.updated=Date.now(); saveNotes(); };
-  textArea.onkeydown = (e) => {
-    if(e.key==='Enter') {
-      const val = textArea.value;
-      const pos = textArea.selectionStart;
-      const lineStart = val.lastIndexOf('\n',pos-1)+1;
-      const line = val.substring(lineStart, pos);
-      const numMatch = line.match(/^(\d+)\.\s/);
-      if(numMatch) {
-        // Enter בשורה ממוספרת — ממשיך את המספור אוטומטית
-        e.preventDefault();
-        const next = parseInt(numMatch[1])+1;
-        const ins = '\n'+next+'. ';
-        textArea.value = val.substring(0,pos)+ins+val.substring(pos);
-        textArea.selectionStart = textArea.selectionEnd = pos+ins.length;
-        note.textContent = textArea.value; note.updated=Date.now(); saveNotes();
-        const resizeEv = new Event('input'); textArea.dispatchEvent(resizeEv);
-      }
-      // אחרת — ירידת שורה רגילה (ברירת מחדל)
-    }
-  };
-  el.appendChild(textArea);
-
-  // טען צ'קבוקסים
-  const checks = note.checks || [];
-  checks.forEach(c => el.appendChild(createCheckItem(c.text, c.done, id)));
-
-  // הסתר textarea אם יש רק צ'קליסט ואין טקסט
-  if(checks.length > 0 && !note.textContent?.trim()) {
-    textArea.style.display = 'none';
-  }
-
-  if(checks.length===0 && !note.textContent) textArea.focus();
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function createCheckItem(text, done, noteId) {
-  const row = document.createElement('div');
-  row.className = 'note-check-row';
-  row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:2px 0;border-radius:8px;transition:background .1s,opacity .1s,transform .1s;touch-action:pan-y';
-
-  // ידית גרירה
-  const handle = document.createElement('div');
-  handle.innerHTML = '⠿';
-  handle.style.cssText = 'color:var(--muted);font-size:22px;padding:4px 8px;flex-shrink:0;user-select:none;touch-action:none;cursor:grab;min-width:36px;display:flex;align-items:center;justify-content:center';
-
-  // מניעת פתיחת מקלדת בלחיצה על ידית
-  handle.addEventListener('touchstart', (e) => { e.stopPropagation(); }, {passive:true});
-  handle.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
-
-  let longPressTimer = null;
-  let isDragging = false;
-
-  const startLongPress = (e) => {
-    e.stopPropagation();
-    const touch = e.touches[0];
-    longPressTimer = setTimeout(() => {
-      isDragging = true;
-      row.style.opacity = '0.5';
-      row.style.background = 'var(--s3)';
-      row.style.transform = 'scale(1.02)';
-      navigator.vibrate?.(40);
-      // blur any active input so keyboard closes
-      document.activeElement?.blur();
-    }, 250);
-  };
-
-  const onTouchMove = (e) => {
-    if(!isDragging) { clearTimeout(longPressTimer); return; }
-    e.preventDefault();
-    e.stopPropagation();
-    const y = e.touches[0].clientY;
-    const el = document.getElementById('noteEditor');
-    const rows = [...el.querySelectorAll('.note-check-row')];
-    rows.forEach(r => { r.style.outline = ''; r.style.borderTop = ''; });
-    const target = rows.find(r => {
-      if(r === row) return false;
-      const rect = r.getBoundingClientRect();
-      return y >= rect.top && y <= rect.bottom;
-    });
-    if(target) target.style.outline = '2px solid var(--c1)';
-  };
-
-  const onTouchEnd = (e) => {
-    clearTimeout(longPressTimer);
-    document.querySelectorAll('.note-check-row').forEach(r => {
-      r.style.outline = '';
-      r.style.borderTop = '';
-    });
-    if(!isDragging) return;
-    isDragging = false;
-    row.style.opacity = '1';
-    row.style.background = '';
-    row.style.transform = '';
-    const y = e.changedTouches[0].clientY;
-    const el = document.getElementById('noteEditor');
-    const rows = [...el.querySelectorAll('.note-check-row')];
-    const target = rows.find(r => {
-      if(r === row) return false;
-      const rect = r.getBoundingClientRect();
-      return y >= rect.top && y <= rect.bottom;
-    });
-    if(target) {
-      const srcIdx = rows.indexOf(row);
-      const dstIdx = rows.indexOf(target);
-      if(srcIdx > dstIdx) target.parentNode.insertBefore(row, target);
-      else target.parentNode.insertBefore(row, target.nextSibling);
-      saveCheckItems(noteId);
-    }
-  };
-
-  handle.addEventListener('touchstart', startLongPress, {passive:false});
-  handle.addEventListener('touchmove', onTouchMove, {passive:false});
-  handle.addEventListener('touchend', onTouchEnd);
-
-  const box = document.createElement('div');
-  box.className = 'note-check-box' + (done?' checked':'');
-  box.style.cssText = `width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:#fff;font-weight:800;cursor:pointer;transition:all .15s`;
-  box.innerHTML = done?'✓':'';
-  box.onmousedown = (e) => {
-    e.preventDefault();
-    done = !done;
-    box.className = 'note-check-box' + (done?' checked':'');
-    box.innerHTML = done?'✓':'';
-    input.style.textDecoration = done?'line-through':'none';
-    input.style.color = done?'var(--muted)':'var(--text)';
-    saveCheckItems(noteId);
-  };
-
-  const input = document.createElement('textarea');
-  input.rows = 1;
-  input.value = text;
-  input.style.cssText = `flex:1;border:none;background:transparent;outline:none;font-size:14px;font-family:inherit;direction:rtl;color:var(--text);resize:none;overflow:hidden;line-height:1.5;padding:0;${done?'text-decoration:line-through;color:var(--muted)':''}`;
-  // גלישה אוטומטית
-  const autoResize = () => { input.style.height='auto'; input.style.height=input.scrollHeight+'px'; };
-  input.addEventListener('input', autoResize);
-  setTimeout(autoResize, 0);
-  input.oninput = () => { autoResize(); saveCheckItems(noteId); };
-  input.onkeydown = (e) => {
-    if(e.key==='Enter') {
-      e.preventDefault();
-      const newItem = createCheckItem('', false, noteId);
-      row.parentNode.insertBefore(newItem, row.nextSibling);
-      newItem.querySelector('textarea')?.focus();
-      saveCheckItems(noteId);
-    }
-    if(e.key==='Backspace' && input.value==='') {
-      e.preventDefault();
-      const prev = row.previousSibling;
-      row.remove();
-      if(prev?.querySelector) prev.querySelector('input,textarea')?.focus();
-      saveCheckItems(noteId);
-    }
-  };
-
-  row.appendChild(handle);
-  row.appendChild(box);
-  row.appendChild(input);
-  return row;
+function autoResizeTA(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
 }
 
-
-function saveCheckItems(noteId) {
-  const el = document.getElementById('noteEditor');
-  const note = notes_data.find(n=>n.id===noteId);
-  if(!el||!note) return;
-  const rows = el.querySelectorAll('.note-check-row');
-  if(rows.length > 0) {
-    note.checks = [];
-    rows.forEach(row => {
-      const box = row.querySelector('.note-check-box');
-      const input = row.querySelector('textarea') || row.querySelector('input');
-      if(input) {
-        note.checks.push({text:input.value, done:box?.classList.contains('checked')||false});
-      }
-    });
-  }
-  // שמור גם textarea
-  const ta = document.getElementById('noteTextArea');
-  if(ta) { note.textContent = ta.value; note.content = ta.value; }
-  note.updated = Date.now();
-  saveNotes();
+function onNoteInput() {
+  const ta = document.getElementById('noteTA');
+  if(ta) autoResizeTA(ta);
+  saveNoteFromEditor();
+  renderNoteChecks();
 }
 
-function convertToChecklist() {
-  const ta = document.getElementById('noteTextArea');
-  const noteId = editingNoteId;
-  const note = notes_data.find(n=>n.id===noteId);
-  if(!note) return;
-  const el = document.getElementById('noteEditor');
-
-  if(ta && ta.value.trim()) {
-    const val = ta.value;
-    const selStart = ta.selectionStart;
-    const selEnd = ta.selectionEnd;
-    const hasSelection = selStart !== selEnd;
-
-    if(hasSelection) {
-      // המר רק שורות מסומנות לצ'קבוקסים
-      const lineStart = val.lastIndexOf('\n', selStart-1)+1;
-      const lastLineEnd = val.indexOf('\n', selEnd-1);
-      const lineEnd = lastLineEnd === -1 ? val.length : lastLineEnd;
-
-      const before = val.substring(0, lineStart);
-      const selectedBlock = val.substring(lineStart, lineEnd);
-      const after = val.substring(lineEnd);
-
-      const lines = selectedBlock.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
-      // הסר שורות שהומרו מה-textarea
-      const newVal = (before + (before && after.trimStart() ? '\n' : '') + after.trimStart()).trimEnd();
-      ta.value = newVal;
-      note.textContent = newVal;
-      if(!newVal) ta.style.display = 'none';
-
-      lines.forEach(line => {
-        const clean = line.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '');
-        el.appendChild(createCheckItem(clean, false, noteId));
-      });
-      saveCheckItems(noteId);
-    } else {
-      // אין סימון — המר הכל
-      const lines = val.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
-      ta.value = '';
-      note.textContent = '';
-      ta.style.display = 'none';
-      lines.forEach(line => {
-        const clean = line.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '');
-        el.appendChild(createCheckItem(clean, false, noteId));
-      });
-      saveCheckItems(noteId);
-    }
-  } else {
-    // אין טקסט — הוסף שורה ריקה
-    insertFormatAndFocus('☐ ');
-  }
-}
-
-function insertFormatAndFocus(fmt) {
-  const el = document.getElementById('noteEditor');
-  const noteId = editingNoteId;
-  if(!el||!noteId) return;
-  // הסתר textarea אם ריק
-  const ta = document.getElementById('noteTextArea');
-  if(ta && !ta.value.trim()) ta.style.display = 'none';
-  const newItem = createCheckItem('', false, noteId);
-  el.appendChild(newItem);
-  const input = newItem.querySelector('textarea,input');
-  if(input) {
-    newItem.scrollIntoView({block:'nearest'});
-    input.focus();
-    setTimeout(()=>{ input.focus(); input.click(); }, 10);
-    setTimeout(()=>{ input.focus(); }, 50);
-  }
-  saveCheckItems(noteId);
-}
-
-function createNoteLine(text) {
-  const isChecked = text.startsWith('☑ ');
-  const isOpen = text.startsWith('☐ ');
-  if(isChecked || isOpen) {
-    const row = document.createElement('div');
-    row.className = 'note-check-row';
-    row.style.cssText = 'display:flex;align-items:center;gap:10px;margin:3px 0';
-
-    const box = document.createElement('div');
-    box.className = 'note-check-box' + (isChecked?' checked':'');
-    box.innerHTML = isChecked?'✓':'';
-    box.style.cssText = `width:26px;height:26px;border-radius:6px;border:2px solid ${isChecked?'#3ecf8e':'var(--border2)'};background:${isChecked?'#3ecf8e':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;color:#fff;font-weight:800;cursor:pointer;transition:all .2s`;
-    box.onmousedown = (e) => {
-      e.preventDefault();
-      const checked = !box.classList.contains('checked');
-      box.classList.toggle('checked', checked);
-      box.innerHTML = checked?'✓':'';
-      box.style.background = checked?'#3ecf8e':'transparent';
-      box.style.borderColor = checked?'#3ecf8e':'var(--border2)';
-      span.style.textDecoration = checked?'line-through':'';
-      span.style.color = checked?'var(--muted)':'var(--text)';
-      saveNoteFromEditor(editingNoteId);
-    };
-
-    const span = document.createElement('div');
-    span.contentEditable = 'true';
-    span.style.cssText = `flex:1;outline:none;font-size:14px;line-height:1.8;color:var(--text);${isChecked?'text-decoration:line-through;color:var(--muted)':''}`;
-    span.textContent = text.substring(2);
-    span.oninput = () => saveNoteFromEditor(editingNoteId);
-    span.onkeydown = (e) => {
-      if(e.key === 'Enter') {
-        e.preventDefault();
-        const newRow = createNoteLine('☐ ');
-        row.parentNode.insertBefore(newRow, row.nextSibling);
-        newRow.querySelector('[contenteditable]')?.focus();
-        saveNoteFromEditor(editingNoteId);
-      }
-      if(e.key === 'Backspace' && span.textContent === '') {
-        e.preventDefault();
-        const prev = row.previousSibling;
-        row.remove();
-        if(prev) {
-          const range = document.createRange();
-          const sel = window.getSelection();
-          range.selectNodeContents(prev);
-          range.collapse(false);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-        saveNoteFromEditor(editingNoteId);
-      }
-    };
-
-    row.appendChild(box);
-    row.appendChild(span);
-    return row;
-  } else {
-    const div = document.createElement('div');
-    div.style.cssText = 'font-size:14px;line-height:1.8;min-height:1.8em;color:var(--text)';
-    div.textContent = text;
-    return div;
-  }
-}
-
-function handleCheckRowKeydown(e, row) {
-  if(e.key === 'Enter') {
-    e.preventDefault();
-    const newRow = createNoteLine('☐ ');
-    row.parentNode.insertBefore(newRow, row.nextSibling);
-    newRow.querySelector('.note-check-text')?.focus();
-    saveNoteFromEditor(editingNoteId);
-  }
-}
-
-function onNoteEditorInput(id) {
-  saveNoteFromEditor(id);
-}
-
-function saveNoteFromEditor(id) {
-  const note = notes_data.find(n=>n.id===id);
-  if(!note) return;
-  const ta = document.getElementById('noteTextArea');
-  if(ta) { note.textContent = ta.value; }
-  saveCheckItems(id);
-  // build content string for legacy compatibility
-  const lines = [note.textContent||''];
-  (note.checks||[]).forEach(c=>lines.push((c.done?'☑ ':'☐ ')+c.text));
-  note.content = lines.join('\n').trim();
-  note.updated = Date.now();
-  saveNotes();
-}
-
-function handleEditorClick(e) {}
-function onNoteEditorInput(id) { saveNoteFromEditor(id); }
-function handleEditorKeydown(e, id) {}
-
-function switchToEdit(id) {}
-function switchToPreview() {}
-function toggleNoteMode() {}
-function renderCheckboxPreview() {}
-function renderNotePreview() {}
-function openTextareaEdit() {}
-
-// עדכן copyNote לשמור קודם
-function getNoteText(id) {
-  saveNoteFromEditor(id);
-  const note = notes_data.find(n=>n.id===id);
-  return `${note?.title?note.title+'\n\n':''}${note?.content||''}`;
-}
-
-function renderCheckboxPreview() {
-  const ta = document.getElementById('noteContent');
-  const preview = document.getElementById('notePreview');
-  if(!ta||!preview) return;
-  const lines = ta.value.split('\n');
-
-  if(!lines.join('').trim()) {
-    preview.innerHTML = `<div style="color:var(--muted);font-size:13px;cursor:text" onclick="openTextareaEdit()">לחץ לכתיבה...</div>`;
-    return;
-  }
-
-  preview.innerHTML = lines.map((line,i) => {
-    const isDone = line.startsWith('☑ ');
-    const isOpen = line.startsWith('☐ ');
-    if(isDone || isOpen) {
-      const text = line.substring(2);
-      return `<div onclick="toggleCheckLine(${i})" style="display:flex;align-items:center;gap:12px;padding:6px 4px;cursor:pointer;border-radius:8px;margin-bottom:2px">
-        <div style="width:30px;height:30px;border-radius:8px;border:2px solid ${isDone?'#3ecf8e':'var(--border2)'};background:${isDone?'#3ecf8e':'var(--s1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;color:#fff;font-weight:800">${isDone?'✓':''}</div>
-        <span style="font-size:14px;${isDone?'text-decoration:line-through;color:var(--muted)':''}">${text||'&nbsp;'}</span>
-      </div>`;
-    }
-    if(line.match(/^\d+\.\s/)) return `<div style="padding:4px 2px;font-size:14px">${line}</div>`;
-    if(!line.trim()) return `<div style="height:8px"></div>`;
-    return `<div style="padding:4px 2px;font-size:14px">${line}</div>`;
-  }).join('') +
-  `<div onclick="openTextareaEdit()" style="margin-top:10px;padding:6px;border-radius:8px;border:1px dashed var(--border2);color:var(--muted);font-size:11px;text-align:center;cursor:pointer">✏️ לחץ לעריכה</div>`;
-}
-
-function openTextareaEdit() {
-  const ta = document.getElementById('noteContent');
-  const preview = document.getElementById('notePreview');
-  if(!ta||!preview) return;
-  ta.style.display='block';
-  ta.classList.add('modal-input');
-  ta.style.minHeight='200px';
-  ta.style.resize='none';
-  ta.style.whiteSpace='pre';
-  ta.style.lineHeight='1.9';
-  ta.style.fontSize='13px';
-  preview.style.display='none';
-  ta.focus();
-  ta.onblur = ()=>{
-    ta.style.display='none';
-    preview.style.display='block';
-    renderCheckboxPreview();
-    ta.onblur=null;
-  };
-}
-
-function renderNotePreview() { renderCheckboxPreview(); }
-
-function toggleCheckLine(lineIdx) {
-  const ta = document.getElementById('noteContent');
-  if(!ta) return;
-  const lines = ta.value.split('\n');
-  if(lines[lineIdx].startsWith('☐ ')) {
-    lines[lineIdx] = '☑ '+lines[lineIdx].substring(2);
-  } else if(lines[lineIdx].startsWith('☑ ')) {
-    lines[lineIdx] = '☐ '+lines[lineIdx].substring(2);
-  }
-  ta.value = lines.join('\n');
-  updateNote(editingNoteId);
-  renderNotePreview();
-}
-
-function handleNoteKeydown(e) {
-  if(e.key !== 'Enter') return;
-  const ta = e.target;
-  const pos = ta.selectionStart;
+function onNoteKeydown(e) {
+  const ta = document.getElementById('noteTA');
+  if(!ta || e.key !== 'Enter') return;
   const val = ta.value;
+  const pos = ta.selectionStart;
   const lineStart = val.lastIndexOf('\n', pos-1)+1;
   const line = val.substring(lineStart, pos);
 
-  // ממוספר: 1. / 2. וכו'
+  // המשך מספור אוטומטי
   const numMatch = line.match(/^(\d+)\.\s/);
   if(numMatch) {
     e.preventDefault();
-    const nextNum = parseInt(numMatch[1])+1;
-    const insert = '\n'+nextNum+'. ';
-    ta.value = val.substring(0,pos)+insert+val.substring(pos);
-    ta.selectionStart = ta.selectionEnd = pos+insert.length;
-    updateNote(editingNoteId);
+    const next = parseInt(numMatch[1])+1;
+    const ins = '\n'+next+'. ';
+    ta.value = val.substring(0,pos)+ins+val.substring(pos);
+    ta.selectionStart = ta.selectionEnd = pos+ins.length;
+    autoResizeTA(ta);
+    saveNoteFromEditor();
     return;
   }
 
-  // צ'קליסט: ☐ או ☑
-  if(line.match(/^[☐☑]\s/)) {
+  // המשך צ'קבוקס אוטומטי
+  if(line.startsWith('[ ] ') || line.startsWith('[x] ')) {
     e.preventDefault();
-    const insert = '\n☐ ';
-    ta.value = val.substring(0,pos)+insert+val.substring(pos);
-    ta.selectionStart = ta.selectionEnd = pos+insert.length;
-    updateNote(editingNoteId);
+    const ins = '\n[ ] ';
+    ta.value = val.substring(0,pos)+ins+val.substring(pos);
+    ta.selectionStart = ta.selectionEnd = pos+ins.length;
+    autoResizeTA(ta);
+    saveNoteFromEditor();
+    renderNoteChecks();
     return;
   }
+  // אחרת — ירידת שורה רגילה
 }
 
-function insertFormat(type) {
-  // This function is kept for legacy use; note editor uses insertNumberedFormat
-  const ta = document.getElementById('noteContent');
-  if(!ta) return;
-  const start = ta.selectionStart;
-  const val = ta.value;
-  const lineStart = val.lastIndexOf('\n', start-1)+1;
-  const insert = type === 'numbered' ? '1. ' : type === '---' ? '\n---\n' : type;
-  ta.value = val.substring(0, lineStart) + insert + val.substring(lineStart);
-  ta.selectionStart = ta.selectionEnd = lineStart + insert.length + (start - lineStart);
-  ta.focus();
-  updateNote(editingNoteId);
-}
-
-function insertNumberedFormat() {
-  const ta = document.getElementById('noteTextArea');
+function formatSelected(type) {
+  const ta = document.getElementById('noteTA');
   if(!ta) return;
   const val = ta.value;
   const selStart = ta.selectionStart;
   const selEnd = ta.selectionEnd;
-  const hasSelection = selStart !== selEnd;
 
-  let lineStart, lineEnd;
-  if(hasSelection) {
-    lineStart = val.lastIndexOf('\n', selStart-1)+1;
-    const lastLineEnd = val.indexOf('\n', selEnd-1);
-    lineEnd = lastLineEnd === -1 ? val.length : lastLineEnd;
-  } else {
-    lineStart = val.lastIndexOf('\n', selStart-1)+1;
-    const end = val.indexOf('\n', selStart);
-    lineEnd = end === -1 ? val.length : end;
-  }
+  // מצא את תחילת ה-line הראשונה וסוף ה-line האחרונה
+  const lineStart = val.lastIndexOf('\n', selStart-1)+1;
+  const lastNewline = val.indexOf('\n', selEnd);
+  const lineEnd = lastNewline === -1 ? val.length : lastNewline;
 
   const before = val.substring(0, lineStart);
-  const selectedBlock = val.substring(lineStart, lineEnd);
+  const block = val.substring(lineStart, lineEnd);
   const after = val.substring(lineEnd);
 
   // ספור שורות ממוספרות לפני הבלוק
-  const beforeLines = before.split('\n');
-  let lineNum = beforeLines.reduce((n,l)=>{ const m=l.match(/^(\d+)\./); return m?parseInt(m[1]):n; }, 0) + 1;
+  let numCounter = before.split('\n').reduce((n,l)=>{ const m=l.match(/^(\d+)\./); return m?parseInt(m[1]):n; }, 0) + 1;
 
-  const numbered = selectedBlock.split('\n').map(line => {
-    const clean = line.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '');
-    return `${lineNum++}. ${clean}`;
+  const newBlock = block.split('\n').map(line => {
+    // נקה קידומות קיימות
+    const clean = line.replace(/^\d+\.\s*/, '').replace(/^\[[ x]\]\s*/, '').replace(/^[-•]\s*/, '');
+    if(type === 'numbered') return `${numCounter++}. ${clean}`;
+    if(type === 'check') return `[ ] ${clean}`;
+    return clean; // plain
   }).join('\n');
 
-  ta.value = before + numbered + after;
+  ta.value = before + newBlock + after;
   ta.selectionStart = lineStart;
-  ta.selectionEnd = lineStart + numbered.length;
+  ta.selectionEnd = lineStart + newBlock.length;
   ta.focus();
-  const note = notes_data.find(n=>n.id===editingNoteId);
-  if(note) { note.textContent = ta.value; note.updated=Date.now(); saveNotes(); }
-  const ev = new Event('input'); ta.dispatchEvent(ev);
+  autoResizeTA(ta);
+  saveNoteFromEditor();
+  renderNoteChecks();
 }
 
-function updateNote(id) {
-  const note = notes_data.find(n=>n.id===id);
+function renderNoteChecks() {
+  const el = document.getElementById('noteChecks');
+  if(!el) return;
+  const ta = document.getElementById('noteTA');
+  if(!ta) return;
+  const lines = ta.value.split('\n');
+  const checkLines = lines.map((l,i)=>({line:l,idx:i})).filter(({line})=>line.startsWith('[ ] ')||line.startsWith('[x] '));
+  if(!checkLines.length) { el.innerHTML=''; return; }
+  el.innerHTML = `<div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:10px 12px">
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-weight:600">צ'קבוקסים</div>
+    ${checkLines.map(({line,idx})=>{
+      const done = line.startsWith('[x] ');
+      const text = line.slice(4);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:4px 0;cursor:pointer" onclick="toggleNoteCheck(${idx})">
+        <div style="width:24px;height:24px;border-radius:6px;border:2px solid ${done?'#3ecf8e':'var(--border2)'};background:${done?'#3ecf8e':'var(--s1)'};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;font-weight:800">${done?'✓':''}</div>
+        <div style="font-size:13px;${done?'text-decoration:line-through;color:var(--muted)':''}">${text}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function toggleNoteCheck(lineIdx) {
+  const ta = document.getElementById('noteTA');
+  if(!ta) return;
+  const lines = ta.value.split('\n');
+  const line = lines[lineIdx];
+  if(line.startsWith('[ ] ')) lines[lineIdx] = '[x] ' + line.slice(4);
+  else if(line.startsWith('[x] ')) lines[lineIdx] = '[ ] ' + line.slice(4);
+  ta.value = lines.join('\n');
+  saveNoteFromEditor();
+  renderNoteChecks();
+}
+
+function saveNoteFromEditor() {
+  const note = notes_data.find(n=>n.id===editingNoteId);
   if(!note) return;
-  note.title = document.getElementById('noteTitle')?.value||'';
-  const ta = document.getElementById('noteTextArea');
-  if(ta) note.textContent = ta.value;
+  const ta = document.getElementById('noteTA');
+  const titleEl = document.getElementById('noteTitle');
+  if(titleEl) note.title = titleEl.value;
+  if(ta) note.content = ta.value;
   note.updated = Date.now();
-  saveNoteFromEditor(id);
+  // נקה שדות ישנים
+  delete note.textContent; delete note.checks; delete note.content_old;
+  saveNotes();
 }
 
 function deleteNote(id) {
@@ -1678,55 +1281,14 @@ function deleteNote(id) {
   saveNotes(); renderNotepadList();
 }
 
-function addNoteToTasks(noteId) {
-  saveNoteFromEditor(noteId);
-  const note = notes_data.find(n=>n.id===noteId);
-  if(!note) return;
-  // הצג בורר תחומים
-  const el = document.getElementById('noteToTaskDomains');
-  el.innerHTML = domains.filter(d=>d.id!=='wishlist').map(d=>`
-    <button onclick="confirmNoteToTask('${noteId}','${d.id}')"
-      style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:12px;cursor:pointer;font-family:inherit;text-align:right;width:100%">
-      <span style="display:inline-flex;color:${d.color}">${domIcon(d,18)}</span>
-      <span style="font-size:14px;font-weight:600;color:var(--text)">${d.name}</span>
-    </button>`).join('');
-  // סגור פנקס ופתח בורר
-  document.getElementById('notepadOverlay').classList.remove('open');
-  document.getElementById('noteToTaskOverlay').classList.add('open');
-}
-
-function confirmNoteToTask(noteId, domainId) {
-  const note = notes_data.find(n=>n.id===noteId);
-  if(!note) return;
-  document.getElementById('noteToTaskOverlay').classList.remove('open');
-  // צור משימה עם קישור לפתק
-  const newTask = {
-    id: nextId++,
-    domain: domainId,
-    subcat: 'לעשות',
-    name: note.title || 'פתק ללא כותרת',
-    done: false,
-    priority: 'important',
-    dueDate: '',
-    notes: (note.textContent||note.content||'').substring(0,150) + (note.checks?.length ? `\n${note.checks.map(c=>`${c.done?'✓':'○'} ${c.text}`).join('\n')}` : ''),
-    noteId: noteId, // קישור לפתק
-    people: []
-  };
-  tasks.push(newTask);
-  save();
-  const cur = document.querySelector('.panel.on');
-  if(cur?.id==='panel-tasks') renderTasks();
-  else renderDash();
-  showToast(`✅ נוסף ל${domains.find(d=>d.id===domainId)?.name}`, null);
-}
-
 function deleteNoteFromEdit(id) {
+  if(!confirm('למחוק את הפתק?')) return;
   notes_data = notes_data.filter(n=>n.id!==id);
   saveNotes(); renderNotepadList();
 }
 
 function copyNote(id) {
-  saveNoteFromEditor(id);
+  saveNoteFromEditor();
   const note = notes_data.find(n=>n.id===id);
   if(!note) return;
   const text = `${note.title?note.title+'\n\n':''}${note.content||''}`;
@@ -1736,6 +1298,7 @@ function copyNote(id) {
     showToast('הועתק ללוח ✓',null);
   });
 }
+
 
 let notifTimers = {};
 let activeRoutineState = {}; // {taskId: {phase:'started'|'waiting', startTime, delayCount, extendCount}}
@@ -4759,8 +4322,12 @@ function renderNoteFloat(noteId, taskId) {
   const note = notes_data.find(n=>n.id===noteId);
   if(!note) return;
   const el = document.getElementById('noteFloatContent');
-  const doneCount = (note.checks||[]).filter(c=>c.done).length;
-  const totalCount = (note.checks||[]).length;
+  const rawContent = note.content || note.textContent || '';
+  const lines = rawContent.split('\n');
+  const checkLines = lines.map((l,i)=>({l,i})).filter(({l})=>l.startsWith('[ ] ')||l.startsWith('[x] '));
+  const textLines = lines.filter(l=>!l.startsWith('[ ] ')&&!l.startsWith('[x] ')&&l.trim());
+  const doneCount = checkLines.filter(({l})=>l.startsWith('[x] ')).length;
+  const totalCount = checkLines.length;
   const pct = totalCount ? Math.round(doneCount/totalCount*100) : 0;
 
   let html = `
@@ -4772,8 +4339,8 @@ function renderNoteFloat(noteId, taskId) {
         style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
     </div>`;
 
-  if(note.textContent?.trim()) {
-    html += `<div style="font-size:13px;color:var(--muted);margin-bottom:12px;padding:10px;background:var(--s2);border-radius:var(--radius-xs);line-height:1.6">${note.textContent.replace(/\n/g,'<br>')}</div>`;
+  if(textLines.length) {
+    html += `<div style="font-size:13px;color:var(--muted);margin-bottom:12px;padding:10px;background:var(--s2);border-radius:var(--radius-xs);line-height:1.7">${textLines.join('<br>')}</div>`;
   }
 
   if(totalCount > 0) {
@@ -4784,23 +4351,29 @@ function renderNoteFloat(noteId, taskId) {
     <div style="background:var(--s3);border-radius:4px;height:4px;overflow:hidden;margin-bottom:12px">
       <div style="background:var(--c1);height:100%;width:${pct}%;border-radius:4px;transition:width .3s"></div>
     </div>`;
-    (note.checks||[]).forEach((c,i) => {
+    checkLines.forEach(({l,i}) => {
+      const done = l.startsWith('[x] ');
+      const text = l.slice(4);
       html += `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
-        <div onclick="toggleNoteCheck('${noteId}',${i},'${taskId}')"
-          style="width:24px;height:24px;border-radius:6px;border:2px solid ${c.done?'#3ecf8e':'var(--border2)'};background:${c.done?'#3ecf8e':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;color:#fff;font-size:14px;font-weight:800;transition:all .2s">${c.done?'✓':''}</div>
-        <div style="flex:1;font-size:13px;${c.done?'text-decoration:line-through;color:var(--muted)':''}">${c.text}</div>
+        <div onclick="toggleNoteCheckFloat('${noteId}',${i},'${taskId}')"
+          style="width:24px;height:24px;border-radius:6px;border:2px solid ${done?'#3ecf8e':'var(--border2)'};background:${done?'#3ecf8e':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;color:#fff;font-size:14px;font-weight:800;transition:all .2s">${done?'✓':''}</div>
+        <div style="flex:1;font-size:13px;${done?'text-decoration:line-through;color:var(--muted)':''}">${text}</div>
       </div>`;
     });
-  } else {
-    html += `<div style="text-align:center;color:var(--muted2);padding:20px;font-size:13px">אין סעיפים בפתק זה</div>`;
+  } else if(!textLines.length) {
+    html += `<div style="text-align:center;color:var(--muted2);padding:20px;font-size:13px">אין תוכן בפתק זה</div>`;
   }
   el.innerHTML = html;
 }
 
-function toggleNoteCheck(noteId, idx, taskId) {
+function toggleNoteCheckFloat(noteId, lineIdx, taskId) {
   const note = notes_data.find(n=>n.id===noteId);
-  if(!note||!note.checks?.[idx]) return;
-  note.checks[idx].done = !note.checks[idx].done;
+  if(!note) return;
+  const lines = (note.content || '').split('\n');
+  const line = lines[lineIdx];
+  if(line.startsWith('[ ] ')) lines[lineIdx] = '[x] ' + line.slice(4);
+  else if(line.startsWith('[x] ')) lines[lineIdx] = '[ ] ' + line.slice(4);
+  note.content = lines.join('\n');
   note.updated = Date.now();
   saveNotes();
   renderNoteFloat(noteId, taskId);
@@ -4808,8 +4381,9 @@ function toggleNoteCheck(noteId, idx, taskId) {
   if(cur?.id==='panel-tasks') renderTasks();
   else if(cur?.id==='panel-dash') renderDash();
   // אם הכל בוצע — שאל
-  const doneCount = note.checks.filter(c=>c.done).length;
-  const total = note.checks.length;
+  const checkLines = (note.content||'').split('\n').filter(l=>l.startsWith('[ ] ')||l.startsWith('[x] '));
+  const doneCount = checkLines.filter(l=>l.startsWith('[x] ')).length;
+  const total = checkLines.length;
   if(doneCount === total && total > 0) {
     setTimeout(() => {
       if(confirm(`כל ${total} הסעיפים בוצעו (100%) — לסגור את המשימה?`)) {
