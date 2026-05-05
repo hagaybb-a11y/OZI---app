@@ -934,6 +934,7 @@ let nextId = Math.max(...tasks.map(t=>t.id)) + 1;
 localStorage.setItem('domains', JSON.stringify(domains));
 let editingTask = null;
 let editingProject = null;
+let addingToProjectId = null;
 
 function save() {
   localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -4083,10 +4084,16 @@ function saveTask() {
   }
   delete document.getElementById('modalOverlay').dataset.projectId;
   save(); closeModal();
-  const cur = document.querySelector('.panel.on');
-  if(cur?.id==='panel-tasks') renderTasks();
-  else if(cur?.id==='panel-dash') renderDash();
-  else if(cur?.id==='panel-projects') { renderProjects(); if(pid) openProjectDetail(pid); }
+  if(addingToProjectId) {
+    const apid = addingToProjectId;
+    addingToProjectId = null;
+    renderProjects();
+    openProjectDetail(apid);
+  } else {
+    const cur = document.querySelector('.panel.on');
+    if(cur?.id==='panel-tasks') renderTasks();
+    else if(cur?.id==='panel-dash') renderDash();
+  }
 }
 
 // ── CHAT ──
@@ -4669,6 +4676,7 @@ function renderProjectTaskItem(t) {
 }
 
 function openAddTaskToProject(pid) {
+  addingToProjectId = pid;
   const p = projects.find(pr=>pr.id===pid);
   if(!p) return;
   closeFilterModal();
